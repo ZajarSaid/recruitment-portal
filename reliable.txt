@@ -1,0 +1,72 @@
+================================================================================
+RECRUITMENT PORTAL - QUICK RELIABILITY GUIDE
+How the system flows · Where everything reliably lives
+(Companion to usermanual.txt - keep this short)
+================================================================================
+
+RELIABLE ROOT (start every command here)
+--------------------------------------------------------------------------------
+  Project root:  D:\Projects\RECRUITMENT\recruitment-portal
+  Run every command from this folder. All other paths below are relative to it.
+
+  Environment     .env                         (copy from .env.example; never commit)
+  Database        PostgreSQL, DATABASE_URL     (dev: recruitment_portal)
+  Private uploads UPLOAD_DIR                   (default: <project root>\storage)
+  Next.js app     http://localhost:3000        (npm run dev)
+  Tests           recruitment_portal_test      (DATABASE_URL + "_test")
+
+  Rule: uploaded files are written under the storage root and are NEVER placed in
+  public/. The only way to read them is through the protected route
+  /applications/[applicationId]/documents/[documentId], which checks ownership.
+
+RUN THE SYSTEM (reliable order)
+--------------------------------------------------------------------------------
+  npm install          # dependencies
+  npm run db:generate  # Prisma client (re-run after any schema change)
+  npm run db:migrate   # apply migrations
+  npm run db:seed      # demo users + vacancies
+  npm run dev          # http://localhost:3000
+
+  Quality gates: npm run lint · npm run typecheck · npm test · npm run build
+
+SYSTEM FLOW (what happens, end to end)
+--------------------------------------------------------------------------------
+  1. Recruiter/Admin creates a vacancy and may attach DOCUMENT REQUIREMENTS
+     (each is Required or Optional). A vacancy with zero requirements is valid.
+  2. Candidate opens a published, open vacancy and clicks Apply.
+  3. Candidate uploads a file per requirement. Files are staged (private) and
+     validated by real file content (PDF/JPEG/PNG), size and type - never by the
+     browser-declared type. A candidate can replace or remove a staged file.
+  4. On submit, the server refuses the application unless every Required
+     document is present. On success it, in ONE transaction:
+       - creates the Application (with a frozen requirements snapshot),
+       - stores each ApplicationDocument (with its immutable requirement key),
+       - clears the staged uploads.
+     The candidate then lands on /dashboard.
+  5. Recruiter/Admin reviews each document (Accept/Reject + reason) and moves the
+     application through its status lifecycle. Every change is recorded in the
+     status history. Candidates only ever see their own applications.
+
+REQUIREMENT SNAPSHOT (why reviewing is stable)
+--------------------------------------------------------------------------------
+  - The requirements seen at review time are the ones stored on the application
+    at submission, not the vacancy's current requirements.
+  - Editing, renaming, re-ordering or deleting a vacancy requirement afterwards
+    does NOT change already-submitted applications. Documents keep their key.
+  - Applications created before this feature have no snapshot; they are never
+    flagged for documents that did not apply when they were submitted.
+
+SIGN-IN (seeded demo accounts, case-sensitive)
+--------------------------------------------------------------------------------
+  Admin      admin@recruitment.go.tz      / Admin@12345
+  Recruiter  recruiter@recruitment.go.tz  / Recruiter@12345
+  Candidate  candidate@recruitment.go.tz  / Candidate@12345
+
+WHERE TO LOOK WHEN SOMETHING IS WRONG
+--------------------------------------------------------------------------------
+  Blank/empty DB pages        -> .env DATABASE_URL, then npm run db:migrate
+  Prisma type errors          -> npm run db:generate
+  Upload rejected             -> file must be real PDF/JPEG/PNG and <= 5 MB
+  Document 404 in the app     -> you are not the owner or not the job's recruiter
+  Tests hit dev data          -> they never should; test DB is <name>_test
+================================================================================

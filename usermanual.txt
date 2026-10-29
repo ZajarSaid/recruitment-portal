@@ -1,0 +1,196 @@
+================================================================================
+PSRS RECRUITMENT PORTAL - USER MANUAL
+Secure Job Recruitment Management Portal (Next.js + PostgreSQL)
+================================================================================
+
+WHAT THIS SYSTEM DOES (current state)
+--------------------------------------------------------------------------------
+A database-driven recruitment portal that simulates the core activities of the
+Public Service Recruitment Secretariat (PSRS). Real user accounts, job
+vacancies, applications, evaluations and status history are stored in
+PostgreSQL - there is no mock data.
+
+Implemented and working right now:
+  - Secure registration, login, logout and password recovery.
+  - Public job browsing: search vacancies and view full job details.
+  - Job management for recruiters and administrators:
+    create, edit, publish, close and reopen vacancies.
+  - Candidate applications with resume/professional summary.
+  - Duplicate-application prevention (one application per candidate per job,
+    enforced in application code AND by a database unique constraint).
+  - Deterministic resume quality score (1-10), stored once and never
+    recalculated randomly.
+  - Recruiter review workflow with review notes and a full status history.
+  - Administrator dashboard: user/role management, account activation,
+    recruiter assignment, job/application oversight and recruitment statistics.
+  - Server-side role-based and record-level access control.
+  - Automated test suite (Vitest + React Testing Library) and a production build.
+
+Not implemented (do not expect these):
+  - Candidate profile editing beyond the name/email given at registration.
+  - Real email delivery. Password-reset links are shown on screen in
+    development and logged on the server; no SMTP is configured.
+  - Interview scheduling, payroll, onboarding or any non-recruitment feature.
+
+--------------------------------------------------------------------------------
+TECHNOLOGY
+--------------------------------------------------------------------------------
+Next.js (App Router) + React + TypeScript, PostgreSQL, Prisma 7 ORM,
+Tailwind CSS, Zod validation, jose (signed session cookie), bcryptjs password
+hashing, Vitest + React Testing Library for tests.
+
+--------------------------------------------------------------------------------
+USER ROLES
+--------------------------------------------------------------------------------
+CANDIDATE  - registers self-service, browses jobs, applies, tracks status.
+RECRUITER  - manages the vacancies they created or were assigned, reviews and
+             decides on applications.
+ADMIN      - manages users and roles, oversees all jobs/applications, assigns
+             recruiters, views statistics.
+
+Public (not signed in) users can browse jobs, view job details and
+register/login.
+
+--------------------------------------------------------------------------------
+CLEAR FLOW FOR EACH USER
+--------------------------------------------------------------------------------
+
+PUBLIC / VISITOR
+  1. Open the home page (/).
+  2. Go to Jobs (/jobs) to search published vacancies by keyword/department.
+  3. Open a job (/jobs/[id]) to read description, qualifications, salary
+     (shown as Negotiable), location and deadlines.
+  4. Register (/register) or log in (/login) to apply.
+  5. Forgot password (/forgot-password): enter your email and, in development,
+     use the reset link shown to set a new password (/reset-password).
+
+CANDIDATE
+  1. Register at /register. The account is always created with the CANDIDATE
+     role (a role can never be chosen from the browser or during registration).
+     You are signed in automatically and land on /dashboard.
+  2. Browse jobs and open a vacancy that is PUBLISHED and inside its
+     application window.
+  3. Click Apply, provide a professional summary / resume text (minimum 20
+     characters) and submit. On success you return to /dashboard.
+  4. Track statuses on /dashboard under "My applications". Each application
+     shows the job, submission date, current status and the simulated resume
+     quality score. Candidates can only ever see their own applications.
+  Notes: one application per job; closed, draft or expired jobs cannot be
+  applied to; a candidate cannot change their own status, review notes or score.
+
+RECRUITER
+  1. Log in at /login. You land on the vacancy list (/recruiter/jobs), which
+     shows only the vacancies you created or were assigned to.
+  2. Create a vacancy (/recruiter/jobs/new): title, department, location,
+     description, qualifications, opening and closing dates. Salary is always
+     presented as Negotiable. Create it as DRAFT or publish immediately.
+  3. On the vacancy page you can edit it, publish it, close it, or reopen a
+     closed vacancy. Allowed transitions: DRAFT -> PUBLISHED/CLOSED,
+     PUBLISHED -> CLOSED, CLOSED -> PUBLISHED.
+  4. Review applications per job (/recruiter/jobs/[id]/applications). Open an
+     application to read the candidate's summary and the simulated score, then:
+       - move SUBMITTED to UNDER_REVIEW,
+       - SHORTLIST or REJECT,
+       - add an optional review note.
+  5. Every decision is recorded with previous status, new status, the acting
+     user's identity, timestamp and note.
+
+ADMINISTRATOR
+  1. Log in at /login. You land on /admin with recruitment statistics
+     (published/draft/closed vacancies, applications by status, users by role).
+  2. Manage users and roles (/admin/users): promote/demote roles and
+     activate/deactivate accounts. Deactivated users are blocked immediately,
+     even if they held a valid session. An admin cannot change or deactivate
+     their own account.
+  3. Oversee all vacancies (/admin/jobs) and, where useful, assign an active
+     recruiter to a vacancy (or clear the assignment).
+  4. Oversee all applications (/admin/applications).
+
+--------------------------------------------------------------------------------
+APPLICATION STATUS LIFECYCLE
+--------------------------------------------------------------------------------
+  SUBMITTED --> UNDER_REVIEW --> SHORTLISTED
+            \                \--> REJECTED
+             \--> SHORTLISTED / REJECTED
+
+Allowed moves: SUBMITTED -> UNDER_REVIEW | SHORTLISTED | REJECTED;
+UNDER_REVIEW -> SHORTLISTED | REJECTED; SHORTLISTED -> UNDER_REVIEW | REJECTED;
+REJECTED -> UNDER_REVIEW | SHORTLISTED.
+Only authorized recruiters (owner or assigned) and administrators may change
+status. Invalid transitions and unauthorized requests are rejected on the
+server.
+
+--------------------------------------------------------------------------------
+SAMPLE TEST USERS (already seeded)
+--------------------------------------------------------------------------------
+These accounts were created by the seed script and verified against the running
+database. Passwords are case-sensitive.
+
+  ADMINISTRATOR
+    Email:    admin@recruitment.go.tz
+    Password: Admin@12345
+    Role:     ADMIN
+
+  RECRUITER
+    Email:    recruiter@recruitment.go.tz
+    Password: Recruiter@12345
+    Role:     RECRUITER
+
+  CANDIDATE (optional extra account for end-to-end testing)
+    Email:    candidate@recruitment.go.tz
+    Password: Candidate@12345
+    Role:     CANDIDATE
+
+The seed also creates demonstration vacancies (some PUBLISHED, one DRAFT). The
+recruiter account above is already assigned to those vacancies, so it can
+immediately review applications.
+
+--------------------------------------------------------------------------------
+RUNNING THE SYSTEM
+--------------------------------------------------------------------------------
+  1. Configure environment: copy .env.example to .env and set DATABASE_URL,
+     SESSION_SECRET and APP_URL.
+  2. Install dependencies:            npm install
+  3. Generate the Prisma client:      npm run db:generate
+  4. Apply database migrations:       npm run db:migrate
+  5. Seed demo jobs and users:        npm run db:seed
+  6. Start the development server:    npm run dev   (http://localhost:3000)
+
+Suggested end-to-end demo:
+  - Register a new candidate and apply to a published vacancy.
+  - Log in as recruiter@recruitment.go.tz, open the applications for that job,
+    move the application to UNDER_REVIEW and then SHORTLIST it with a note.
+  - Log back in as the candidate to see the updated status.
+  - Log in as admin@recruitment.go.tz to view the statistics and manage users.
+
+--------------------------------------------------------------------------------
+RUNNING THE AUTOMATED TESTS
+--------------------------------------------------------------------------------
+  npm test           Run the full Vitest suite (unit + integration + RTL).
+  npm run test:watch Watch mode.
+  npm run test:setup Create/migrate/empty the isolated test database manually.
+
+Tests use a separate database derived by appending "_test" to your
+DATABASE_URL database name (for example recruitment_portal_test). They never
+touch development data. A test run first creates and migrates that database
+automatically.
+
+Other quality gates:
+  npm run lint       ESLint
+  npm run typecheck  TypeScript, no emit
+  npm run build      Production build
+
+--------------------------------------------------------------------------------
+SECURITY NOTES
+--------------------------------------------------------------------------------
+  - All sensitive checks are enforced on the server; hiding a button is never
+    the only protection.
+  - Session is an HttpOnly, SameSite=Lax signed cookie - no tokens in
+    localStorage.
+  - Passwords are hashed with bcrypt; login/reset/registration are rate limited.
+  - Candidates can access only their own applications; recruiters only the
+    vacancies they own/are assigned and their applications.
+  - The resume score is a documented, deterministic simulation
+    (method "deterministic-rule-v1") and is explicitly not an objective or
+    legally validated measure. No location-based scoring is used.
+================================================================================

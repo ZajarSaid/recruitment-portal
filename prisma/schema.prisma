@@ -1,0 +1,275 @@
+// Recruitment Portal schema (Prisma ORM 7 / MySQL)
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Role {
+  CANDIDATE
+  RECRUITER
+  ADMIN
+}
+
+enum JobStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  SHORTLISTED
+  REJECTED
+}
+
+enum DocumentRequirementStatus {
+  REQUIRED
+  OPTIONAL
+}
+
+enum DocumentReviewStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CANDIDATE)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdJobs         Job[]                      @relation("JobCreator")
+  assignedJobs        Job[]                      @relation("JobRecruiter")
+  applications        Application[]
+  statusChanges       ApplicationStatusHistory[]
+  evaluations         ApplicationEvaluation[]
+  reviewedDocuments   ApplicationDocument[]      @relation("DocumentReviewer")
+  stagedDocuments     StagedDocument[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model Job {
+  id             String    @id @default(cuid())
+  title          String
+  department     String
+  location       String
+  description    String    @db.Text
+  qualifications String    @db.Text
+  opensAt        DateTime
+  closesAt       DateTime
+  status         JobStatus @default(DRAFT)
+  createdById    String
+  recruiterId    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  createdBy           User                      @relation("JobCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  recruiter           User?                     @relation("JobRecruiter", fields: [recruiterId], references: [id], onDelete: SetNull)
+  applications        Application[]
+  documentRequirements JobDocumentRequirement[]
+  stagedDocuments     StagedDocument[]
+
+  @@index([status, closesAt])
+  @@index([createdById])
+  @@index([recruiterId])
+  @@index([department])
+}
+
+model Application {
+  id            String            @id @default(cuid())
+  candidateId   String
+  jobId         String
+  resumeSummary String            @db.Text
+  status        ApplicationStatus @default(SUBMITTED)
+  submittedAt   DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  // Requirements exactly as they were configured when this application was
+  // submitted. Editing the vacancy later never rewrites this snapshot, so a
+  // recruiter always reviews the candidate against the rules that applied on
+  // the day they submitted. Null means the application predates snapshots.
+  requirementSnapshot Json?
+
+  // Optional profile photograph supplied by the candidate during the
+  // application. Stored in cloud storage; the URL is public/readable by the
+  // candidate and by recruiters who manage the vacancy.
+  photoUrl       String? @db.VarChar(512)
+  photoPublicId  String? @db.VarChar(255)
+
+  candidate  User                        @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job        Job                         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  evaluation ApplicationEvaluation?
+  history    ApplicationStatusHistory[]
+  documents  ApplicationDocument[]
+
+  // A candidate may apply only once per job (enforced at the database level).
+  @@unique([candidateId, jobId])
+  @@index([jobId])
+  @@index([candidateId])
+  @@index([status])
+}
+
+model ApplicationEvaluation {
+  id            String   @id @default(cuid())
+  applicationId String   @unique
+  score         Int
+  method        String
+  notes         String?  @db.Text
+  evaluatedById                String?
+  evaluatedAt                  DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  evaluatedBy User?       @relation(fields: [evaluatedById], references: [id], onDelete: SetNull)
+
+  @@index([evaluatedById])
+}
+
+// A file uploaded by a candidate before the application is finalized. Keeping
+// staged uploads in their own table guarantees that an application is only
+// created once every mandatory document is present, so a partially uploaded
+// application can never be mistaken for a completed one.
+model StagedDocument {
+  id                       String   @id @default(cuid())
+  candidateId              String
+  jobId                    String
+  jobDocumentRequirementId String
+  storageKey               String   @unique @db.VarChar(255)
+  // When the file lives in cloud storage, this holds its public delivery URL.
+  // Null for files kept in local private storage (see `storageKey`).
+  cloudUrl                 String?  @db.VarChar(512)
+  originalFileName         String   @db.VarChar(255)
+  mimeType                 String
+  fileSize                 Int
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  candidate   User                   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job         Job                    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  requirement JobDocumentRequirement @relation(fields: [jobDocumentRequirementId], references: [id], onDelete: Cascade)
+
+  // One staged file per requirement per candidate per vacancy (replacement
+  // updates the existing row).
+  @@unique([candidateId, jobId, jobDocumentRequirementId])
+  @@index([candidateId, jobId])
+}
+
+model ApplicationStatusHistory {
+  id            String             @id @default(cuid())
+  applicationId String
+  fromStatus    ApplicationStatus?
+  toStatus      ApplicationStatus
+  actorId       String
+  note          String?            @db.Text
+  createdAt     DateTime           @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  actor       User        @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([applicationId, createdAt])
+  @@index([actorId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// A reusable catalog of document types (CV, application letter, academic
+// certificate, professional licence, ...). Recruiters may also define custom,
+// vacancy-specific requirements that do not reference a catalog entry.
+model DocumentType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.Text
+  category    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requirements JobDocumentRequirement[]
+
+  @@index([category])
+}
+
+// Configures one document an applicant may need for a specific vacancy.
+// `documentTypeId` is null when the requirement is a custom, ad-hoc item, in
+// which case `customName` holds the display name. "Not applicable" items are
+// simply omitted rather than stored.
+model JobDocumentRequirement {
+  id                String                    @id @default(cuid())
+  jobId             String
+  documentTypeId    String?
+  customName        String?
+  description       String?                   @db.Text
+  requirementStatus DocumentRequirementStatus @default(REQUIRED)
+  displayOrder      Int                       @default(0)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  job          Job                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  documentType DocumentType?         @relation(fields: [documentTypeId], references: [id], onDelete: SetNull)
+  documents    ApplicationDocument[]
+  stagedDocuments StagedDocument[]
+
+  @@index([jobId, displayOrder])
+  @@index([documentTypeId])
+}
+
+// Metadata for a file uploaded against an application to satisfy a
+// requirement. The binary lives in private storage; only its reference is
+// persisted here. Removing a requirement detaches (rather than deletes) any
+// documents already linked to it, preserving candidate submissions.
+model ApplicationDocument {
+  id                         String               @id @default(cuid())
+  applicationId              String
+  jobDocumentRequirementId   String?
+  // Snapshot copy of the requirement id this file was uploaded against. The
+  // live relation above is nullable and SetNull on delete; this plain string is
+  // immutable, so the file keeps its meaning even if the requirement row is
+  // removed or renumbered after submission.
+  requirementKey             String?
+  storageKey                 String               @unique @db.VarChar(255)
+  // Public cloud delivery URL when the file lives in cloud storage; null for
+  // files retained in local private storage.
+  cloudUrl                   String?              @db.VarChar(512)
+  originalFileName           String               @db.VarChar(255)
+  mimeType                   String
+  fileSize                   Int
+  reviewStatus               DocumentReviewStatus @default(PENDING)
+  reviewComment              String?              @db.Text
+  reviewedById               String?
+  reviewedAt                 DateTime?
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
+
+  application    Application             @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  requirement    JobDocumentRequirement? @relation(fields: [jobDocumentRequirementId], references: [id], onDelete: SetNull)
+  reviewedBy     User?                   @relation("DocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([applicationId])
+  @@index([jobDocumentRequirementId])
+  @@index([reviewedById])
+  @@index([reviewStatus])
+}
