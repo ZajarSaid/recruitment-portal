@@ -12,6 +12,8 @@ import { listJobRequirements, requirementLabel } from "@/lib/job-documents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { scheduleApplicationSubmittedEmails } from "@/lib/email/application-emails";
+
 const applySchema = z.object({
   jobId: z.string().min(1, "Job not specified."),
   resumeSummary: z
@@ -110,7 +112,7 @@ export async function applyToJobAction(
   const requirementSnapshot = buildRequirementSnapshot(requirements);
 
   try {
-    await prisma.$transaction(async (tx) => {
+    const created = await prisma.$transaction(async (tx) => {
       const application = await tx.application.create({
         data: {
           candidateId: user.id,
@@ -159,6 +161,24 @@ export async function applyToJobAction(
           where: { candidateId: user.id, jobId },
         });
       }
+
+      return {
+        applicationId: application.id,
+        submittedAt: application.submittedAt,
+      };
+    });
+
+    // Kick off the notification emails without blocking the response.
+    scheduleApplicationSubmittedEmails({
+      applicationId: created.applicationId,
+      candidate: { name: user.name, email: user.email },
+      job: {
+        id: job.id,
+        title: job.title,
+        department: job.department,
+        location: job.location,
+      },
+      submittedAt: created.submittedAt,
     });
   } catch (error: unknown) {
     const code = (error as { code?: string })?.code;
@@ -170,5 +190,6 @@ export async function applyToJobAction(
 
   revalidatePath("/dashboard");
   revalidatePath(`/jobs/${jobId}`);
+
   redirect("/dashboard");
 }

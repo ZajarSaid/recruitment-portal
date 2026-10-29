@@ -28,6 +28,25 @@ export const env = {
   get sessionSecret(): string {
     return required("SESSION_SECRET");
   },
+  /**
+   * Resend API key for transactional email. Optional: when unset (e.g. in a
+   * fresh local environment) emails are skipped and their intent is logged
+   * to the server console instead of failing the request.
+   */
+  get resendApiKey(): string | null {
+    const value = process.env.RESEND_API_KEY;
+    return value && value.trim().length > 0 ? value : null;
+  },
+  /**
+   * Verified sender identity, in the Resend format
+   * `Brand Name <sender@your-domain.com>`.
+   */
+  get mailFrom(): string {
+    const value = process.env.MAIL_FROM?.trim();
+    return value && value.length > 0
+      ? value
+      : "Recruitment Portal <onboarding@resend.dev>";
+  },
   get appUrl(): string {
     return process.env.APP_URL ?? "http://localhost:3000";
   },

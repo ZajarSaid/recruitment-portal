@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/dal";
 import { isJobManager } from "@/lib/navigation";
 import { canManageJob } from "@/lib/jobs";
+import { scheduleApplicationShortlistedEmail } from "@/lib/email/application-emails";
 
 const APPLICATION_STATUSES = ["SUBMITTED", "UNDER_REVIEW", "SHORTLISTED", "REJECTED"] as const;
 type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
@@ -57,7 +58,10 @@ export async function updateApplicationStatusAction(
 
   const app = await prisma.application.findUnique({
     where: { id: applicationId },
-    include: { job: true },
+    include: {
+      job: true,
+      candidate: { select: { name: true, email: true } },
+    },
   });
   if (!app) return { message: "Application not found." };
   if (!canManageJob(user, app.job)) {
@@ -88,5 +92,26 @@ export async function updateApplicationStatusAction(
 
   revalidatePath(`/recruiter/jobs/${app.jobId}`);
   revalidatePath(`/recruiter/applications/${app.id}`);
+
+  // When an application is shortlisted the candidate must receive the
+  // "prepare for an interview" notification. Scheduled through `after` so
+  // the status response itself is not delayed by mail delivery.
+  if (toStatus === "SHORTLISTED") {
+    scheduleApplicationShortlistedEmail(
+      {
+        applicationId: app.id,
+        candidate: { name: app.candidate.name, email: app.candidate.email },
+        job: {
+          id: app.job.id,
+          title: app.job.title,
+          department: app.job.department,
+          location: app.job.location,
+        },
+        submittedAt: app.submittedAt,
+      },
+      note,
+    );
+  }
+
   return { ok: true, message: `Status updated to ${toStatus}.` };
 }
