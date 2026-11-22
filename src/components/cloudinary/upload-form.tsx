@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { notifyAction } from "@/components/action-feedback";
 
 export function UploadForm() {
   const [result, setResult] = useState<string>();
@@ -20,12 +21,16 @@ export function UploadForm() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Upload failed.");
+        const message = data.error ?? "Upload failed.";
+        setError(message);
+        notifyAction(message, false);
         return;
       }
       setResult(data.url);
+      notifyAction("File uploaded.", true);
     } catch {
       setError("Upload failed.");
+      notifyAction("Upload failed.", false);
     } finally {
       setPending(false);
     }

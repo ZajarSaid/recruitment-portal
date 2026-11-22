@@ -1,9 +1,14 @@
 "use client";
 
+import { confirmAction, notifyAction } from "@/components/action-feedback";
+
 import { useId, useRef, useState, useTransition } from "react";
 
 import { formatFileSize } from "@/lib/document-files";
-import { uploadProfilePhotoAction } from "@/lib/actions/profile-photo";
+import {
+  removeProfilePhotoAction,
+  uploadProfilePhotoAction,
+} from "@/lib/actions/profile-photo";
 
 export type ProfilePhotoValue = {
   url: string | null;
@@ -15,13 +20,17 @@ const IMAGE_ACCEPT = ".jpg,.jpeg,.png";
 export function ProfilePhotoField({
   initial,
   maxBytes,
+  savedPreview,
 }: {
   initial?: ProfilePhotoValue | null;
   maxBytes: number;
+  savedPreview?: string | null;
 }) {
   const inputId = useId();
   const [photo, setPhoto] = useState<ProfilePhotoValue | null>(initial ?? null);
-  const [preview, setPreview] = useState<string | null>(initial?.url ?? null);
+  const [preview, setPreview] = useState<string | null>(
+    savedPreview ?? initial?.url ?? null,
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -40,29 +49,48 @@ export function ProfilePhotoField({
     formData.set("file", file);
 
     startTransition(async () => {
-      const result = await uploadProfilePhotoAction(undefined, formData);
+      const result = await uploadProfilePhotoAction(undefined, formData).catch(
+        () => undefined,
+      );
       if (result && result.ok) {
         setPhoto({ url: result.url, publicId: result.publicId });
         setPreview(result.url ?? objectUrl);
-        setMessage("Photo uploaded.");
+        setMessage("Profile photo updated.");
+        notifyAction("Profile photo updated.", true);
       } else {
         setError(true);
         setMessage(result?.message ?? "Upload failed. Please try again.");
-        setPreview(initial?.url ?? null);
+        notifyAction(
+          result?.message ?? "Upload failed. Please try again.",
+          false,
+        );
+        setPreview(savedPreview ?? initial?.url ?? null);
         setPhoto(initial ?? null);
       }
     });
   }
 
   function handleRemove() {
-    if (localPreview.current) {
-      URL.revokeObjectURL(localPreview.current);
-      localPreview.current = null;
-    }
-    setPhoto(null);
-    setPreview(null);
-    setMessage(null);
-    setError(false);
+    startTransition(async () => {
+      const result = await removeProfilePhotoAction().catch(() => ({
+        ok: false,
+      }));
+      if (!result.ok) {
+        setError(true);
+        setMessage("Could not remove your profile photo.");
+        notifyAction("Could not remove your profile photo.", false);
+        return;
+      }
+      if (localPreview.current) {
+        URL.revokeObjectURL(localPreview.current);
+        localPreview.current = null;
+      }
+      setPhoto(null);
+      notifyAction("Profile photo removed.", true);
+      setPreview(null);
+      setMessage(null);
+      setError(false);
+    });
   }
 
   return (
@@ -109,7 +137,13 @@ export function ProfilePhotoField({
           {photo && (
             <button
               type="button"
-              onClick={handleRemove}
+              onClick={() =>
+                confirmAction(
+                  "Remove your profile photo?",
+                  "Remove photo",
+                  handleRemove,
+                )
+              }
               disabled={pending}
               className="self-start text-sm font-medium text-red-600 hover:underline disabled:opacity-60 dark:text-red-400"
             >
@@ -138,9 +172,6 @@ export function ProfilePhotoField({
       <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
         JPEG or PNG up to {formatFileSize(maxBytes)}.
       </p>
-
-      <input type="hidden" name="photoUrl" value={photo?.url ?? ""} />
-      <input type="hidden" name="photoPublicId" value={photo?.publicId ?? ""} />
     </div>
   );
 }

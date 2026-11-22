@@ -3,7 +3,12 @@ import "server-only";
 import { prisma } from "./db";
 import type { CurrentUser } from "./dal";
 import { canManageJob } from "./jobs";
-import { requirementLabel } from "./job-documents";
+import {
+  APPLICATION_LETTER_DESCRIPTION,
+  APPLICATION_LETTER_KEY,
+  APPLICATION_LETTER_LABEL,
+  getCategoryDocumentList,
+} from "./profile-documents";
 
 /** Review states a document can be in. Mirrors `DocumentReviewStatus`. */
 export type DocumentReviewStatus = "PENDING" | "ACCEPTED" | "REJECTED";
@@ -24,7 +29,7 @@ export type RequirementView = {
  */
 export type SnapshotRequirement = RequirementView & { displayOrder: number };
 
-/** A live `JobDocumentRequirement` row, as returned by `listJobRequirements`. */
+/** A live requirement source, as produced by `applicationLetterRequirement`. */
 export type RequirementSource = {
   id: string;
   customName: string | null;
@@ -34,10 +39,36 @@ export type RequirementSource = {
   documentType: { name: string } | null;
 };
 
+function requirementLabel(requirement: {
+  customName: string | null;
+  documentType: { name: string } | null;
+}): string {
+  return (
+    requirement.customName?.trim() ||
+    requirement.documentType?.name ||
+    "Document"
+  );
+}
+
+/**
+ * The single modern application requirement: the signed application letter.
+ * Used both to validate staged uploads and to build submission snapshots.
+ */
+export function applicationLetterRequirement(): RequirementSource {
+  return {
+    id: APPLICATION_LETTER_KEY,
+    customName: APPLICATION_LETTER_LABEL,
+    description: APPLICATION_LETTER_DESCRIPTION,
+    requirementStatus: "REQUIRED",
+    displayOrder: 0,
+    documentType: null,
+  };
+}
+
 /** A document row, normalised to the fields needed for matching. */
 export type DocumentSource = {
   id: string;
-  jobDocumentRequirementId: string | null;
+  documentKey?: string | null;
   requirementKey?: string | null;
   originalFileName: string;
   mimeType: string;
@@ -110,16 +141,13 @@ export function parseRequirementSnapshot(
 }
 
 /**
- * Decides which requirements apply to an application. Snapshots win: editing or
- * deleting a vacancy's requirements after submission never changes what the
- * candidate was judged against. For legacy applications (no snapshot) we show
- * only the requirements they actually attached documents to, so they are never
- * flagged for documents that were not required when they applied.
- */
-export function resolveRequirementViews(
+ * Decides which requirements apply to an application. Snapshots win: they are
+ * frozen at submission time and never change afterwards. Modern applications
+ * always carry a single "APPLICATION_LETTER" entry. Legacy applications
+ * without a snapshot (they predate snapshots) have no resolvable requirement
+ * views, so their documents are shown as extras.
+ */export function resolveRequirementViews(
   application: { requirementSnapshot: unknown },
-  liveRequirements: RequirementSource[],
-  documents: Array<Pick<DocumentSource, "jobDocumentRequirementId" | "requirementKey">>,
 ): RequirementView[] {
   const snapshot = parseRequirementSnapshot(application.requirementSnapshot);
   if (snapshot !== null) {
@@ -130,15 +158,7 @@ export function resolveRequirementViews(
       requirementStatus,
     }));
   }
-
-  const documentKeys = new Set(
-    documents
-      .map((document) => document.requirementKey ?? document.jobDocumentRequirementId)
-      .filter((key): key is string => Boolean(key)),
-  );
-  return liveRequirements
-    .filter((requirement) => documentKeys.has(requirement.id))
-    .map(toRequirementView);
+  return [];
 }
 
 export type DocumentView = {
@@ -173,10 +193,10 @@ export type ApplicationDocumentSummary = {
 function toDocumentView(document: DocumentSource): DocumentView {
   return {
     id: document.id,
-    // Prefer the immutable snapshot key so a document keeps its place even
-    // after the linked requirement row is edited or removed.
+    // Prefer the immutable requirement/document key so a document keeps its
+    // place even after related rows are edited or removed.
     requirementId:
-      document.requirementKey ?? document.jobDocumentRequirementId,
+      document.requirementKey ?? document.documentKey ?? null,
     originalFileName: document.originalFileName,
     mimeType: document.mimeType,
     fileSize: document.fileSize,
@@ -264,7 +284,7 @@ export async function listStagedDocuments(
     where: { candidateId, jobId },
     select: {
       id: true,
-      jobDocumentRequirementId: true,
+      documentKey: true,
       originalFileName: true,
       mimeType: true,
       fileSize: true,
@@ -318,4 +338,48 @@ export async function getAccessibleApplicationDocument(
     mimeType: document.mimeType,
     fileSize: document.fileSize,
   };
+}
+
+export async function getAccessibleApplicationProfileDocument(
+  documentId: string,
+  applicationId: string,
+  user: Pick<CurrentUser, "id" | "role">,
+) {
+  const application = await prisma.application.findUnique({
+    where: { id: applicationId },
+    select: {
+      candidateId: true,
+      job: { select: { createdById: true, recruiterId: true } },
+      candidate: {
+        select: {
+          profile: {
+            select: {
+              category: true,
+              documents: {
+                where: { id: documentId },
+                select: {
+                  documentKey: true,
+                  storageKey: true,
+                  cloudUrl: true,
+                  originalFileName: true,
+                  mimeType: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!application) return null;
+  if (application.candidateId !== user.id && !canManageJob(user, application.job)) {
+    return null;
+  }
+
+  const profile = application.candidate.profile;
+  const document = profile?.documents[0];
+  if (!profile || !document) return null;
+  return getCategoryDocumentList(profile.category).some((spec) => spec.key === document.documentKey)
+    ? document
+    : null;
 }

@@ -1,15 +1,16 @@
 "use client";
 
+import { useFeedbackAction } from "@/components/action-feedback";
+
 import Link from "next/link";
-import { useActionState } from "react";
 
 import { SubmitButton } from "@/components/submit-button";
 import { Alert, Field, Select, TextArea, TextInput } from "@/components/ui";
 import {
-  DocumentRequirementsEditor,
-  type DocumentTypeOption,
-  type JobFormRequirement,
-} from "@/components/jobs/document-requirements-editor";
+  JOB_CATEGORIES,
+  JOB_CATEGORY_LABELS,
+  type JobCategoryValue,
+} from "@/lib/profile-documents";
 import { createJobAction, updateJobAction } from "@/lib/actions/jobs";
 
 export type JobFormValues = {
@@ -19,21 +20,14 @@ export type JobFormValues = {
   location: string;
   description: string;
   qualifications: string;
+  category: JobCategoryValue;
   opensAt: string;
   closesAt: string;
 };
 
-export function JobForm({
-  job,
-  documentTypes,
-  requirements,
-}: {
-  job?: JobFormValues;
-  documentTypes: DocumentTypeOption[];
-  requirements?: JobFormRequirement[];
-}) {
+export function JobForm({ job }: { job?: JobFormValues }) {
   const action = job ? updateJobAction : createJobAction;
-  const [state, formAction] = useActionState(action, undefined);
+  const [state, formAction] = useFeedbackAction(action, undefined);
 
   return (
     <form action={formAction} className="space-y-4" noValidate>
@@ -105,6 +99,20 @@ export function JobForm({
         </Field>
       </div>
 
+      <Field label="Job category" htmlFor="category" error={state?.errors?.category}>
+        <Select
+          id="category"
+          name="category"
+          defaultValue={job?.category ?? "GENERAL"}
+        >
+          {JOB_CATEGORIES.map((category) => (
+            <option key={category} value={category}>
+              {JOB_CATEGORY_LABELS[category]}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
       <Field
         label="Job description"
         htmlFor="description"
@@ -132,12 +140,6 @@ export function JobForm({
           required
         />
       </Field>
-
-      <DocumentRequirementsEditor
-        documentTypes={documentTypes}
-        existing={requirements}
-        errors={state?.errors?.documentRequirements}
-      />
 
       {!job && (
         <Field label="Initial status" htmlFor="status">

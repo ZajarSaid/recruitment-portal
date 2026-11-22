@@ -1,14 +1,15 @@
 "use client";
 
+import { useFeedbackAction } from "@/components/action-feedback";
+
 import Link from "next/link";
-import { useActionState } from "react";
 
 import { SubmitButton } from "@/components/submit-button";
 import { Alert, Field, TextInput } from "@/components/ui";
 import { forgotPasswordAction } from "@/lib/actions/auth";
 
 export function ForgotPasswordForm() {
-  const [state, action] = useActionState(forgotPasswordAction, undefined);
+  const [state, action] = useFeedbackAction(forgotPasswordAction, undefined);
 
   return (
     <form action={action} className="space-y-4" noValidate>

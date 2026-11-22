@@ -7,7 +7,11 @@ import { getCurrentUser } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { formatDate, formatDateTime, SALARY_LABEL } from "@/lib/format";
 import { canManageJob, getJobAvailability, getPublicJob } from "@/lib/jobs";
-import { listJobRequirements, requirementLabel } from "@/lib/job-documents";
+import { APPLICATION_PROFILE_THRESHOLD, getProfileReadiness } from "@/lib/profile";
+import {
+  JOB_CATEGORY_LABELS,
+  type JobCategoryValue,
+} from "@/lib/profile-documents";
 
 type JobPageProps = PageProps<"/jobs/[id]">;
 
@@ -56,7 +60,6 @@ export default async function JobDetailPage({ params }: JobPageProps) {
   const user = await getCurrentUser();
   const availability = getJobAvailability(job);
   const info = availabilityInfo[availability];
-  const requirements = await listJobRequirements(job.id);
 
   const application =
     user?.role === "CANDIDATE"
@@ -65,6 +68,10 @@ export default async function JobDetailPage({ params }: JobPageProps) {
           select: { id: true },
         })
       : null;
+  const readiness = availability === "OPEN" && user?.role === "CANDIDATE" && !application
+    ? await getProfileReadiness(user)
+    : null;
+  const applyPath = `/jobs/${job.id}/apply`;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
@@ -82,6 +89,10 @@ export default async function JobDetailPage({ params }: JobPageProps) {
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {job.department} · {job.location}
+          </p>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            Category:{" "}
+            {JOB_CATEGORY_LABELS[job.category as JobCategoryValue]}
           </p>
         </div>
         <Badge tone={info.tone}>{info.label}</Badge>
@@ -124,50 +135,15 @@ export default async function JobDetailPage({ params }: JobPageProps) {
         </p>
       </section>
 
-      {requirements.length > 0 && (
-        <section className="mt-8">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-            Documents required for this vacancy
-          </h2>
-          <ul className="mt-2 space-y-2">
-            {requirements.map((requirement) => (
-              <li
-                key={requirement.id}
-                className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-zinc-200 p-3 dark:border-zinc-800"
-              >
-                <div>
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    {requirementLabel(requirement)}
-                  </p>
-                  {requirement.description && (
-                    <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      {requirement.description}
-                    </p>
-                  )}
-                </div>
-                <Badge
-                  tone={
-                    requirement.requirementStatus === "REQUIRED"
-                      ? "red"
-                      : "neutral"
-                  }
-                >
-                  {requirement.requirementStatus === "REQUIRED"
-                    ? "Required"
-                    : "Optional"}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <section className="mt-8 rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
           How to apply
         </h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
           {info.note}
+        </p>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+          Reuse your saved profile and attach a signed application letter for this vacancy.
         </p>
 
         <div className="mt-4">
@@ -185,16 +161,24 @@ export default async function JobDetailPage({ params }: JobPageProps) {
             </div>
           )}
 
-          {availability === "OPEN" &&
-            user?.role === "CANDIDATE" &&
-            !application && (
+          {readiness?.canApply && (
               <Link
-                href={`/jobs/${job.id}/apply`}
+                href={applyPath}
                 className="inline-flex rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
               >
                 Apply for this job
               </Link>
             )}
+          {readiness && !readiness.canApply && (
+            <div className="space-y-2">
+              <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                Your profile is {readiness.percentage}% complete. Applications require more than {APPLICATION_PROFILE_THRESHOLD}%.
+              </p>
+              <Link href={{ pathname: "/profile", query: { next: applyPath, incomplete: "1" } }} className="inline-flex rounded-lg bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
+                Update profile
+              </Link>
+            </div>
+          )}
 
           {availability === "OPEN" && !user && (
             <Link

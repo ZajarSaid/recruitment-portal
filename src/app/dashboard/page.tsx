@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Alert } from "@/components/ui";
+import { Alert, Badge } from "@/components/ui";
 import { requireUser } from "@/lib/dal";
+import { APPLICATION_PROFILE_THRESHOLD, getProfileReadiness } from "@/lib/profile";
 import { roleHome } from "@/lib/navigation";
 import ApplicationsSection from "@/components/dashboard/applications-section";
 
@@ -21,15 +23,36 @@ export default async function DashboardPage({
 
   const params = await searchParams;
   const forbidden = params.error === "forbidden";
+  if (!forbidden) redirect("/profile?section=applications");
+
+  const { percentage, canApply } = await getProfileReadiness(user);
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-        Welcome, {user.name}
-      </h1>
-      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-        Manage your profile and track the applications you have submitted.
-      </p>
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-indigo-900 bg-indigo-950 p-5 text-white sm:p-8">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            My applications
+          </h1>
+          <p className="mt-2 text-sm text-indigo-100">
+            Track submitted applications and review their latest updates.
+          </p>
+        </div>
+        <Badge tone={canApply ? "green" : "amber"}>
+          {percentage}% profile completion
+        </Badge>
+      </div>
+
+      {!canApply && (
+        <div className="mt-4">
+          <Alert tone="info">
+            Your profile must be above {APPLICATION_PROFILE_THRESHOLD}% to apply.{" "}
+            <Link href="/profile" className="font-medium underline">
+              Complete your profile
+            </Link>
+          </Alert>
+        </div>
+      )}
 
       {forbidden && (
         <div className="mt-4">

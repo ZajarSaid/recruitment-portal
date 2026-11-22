@@ -70,9 +70,10 @@ describe("jobSchema", () => {
       department: "ICT",
       location: "Dodoma",
       description: "Design and build reliable recruitment systems for the portal.",
-      qualifications: "Degree in Computer Science with five years experience.",
-      opensAt: "2026-01-01",
-      closesAt: "2026-02-01",
+    qualifications: "Degree in Computer Science with five years experience.",
+    category: "IT",
+    opensAt: "2026-01-01",
+    closesAt: "2026-02-01",
       ...overrides,
     };
   }
@@ -98,5 +99,16 @@ describe("jobSchema", () => {
   it("no longer requires salary information", () => {
     const parsed = jobSchema.safeParse(validJob());
     expect(parsed.success).toBe(true);
+  });
+
+  it("requires a recognised job category", () => {
+    expect(
+      jobSchema.safeParse(validJob({ category: "OTHER" })).success,
+    ).toBe(false);
+    const parsed = jobSchema.safeParse(validJob({ category: "MEDICINE" }));
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.category).toBe("MEDICINE");
+    }
   });
 });

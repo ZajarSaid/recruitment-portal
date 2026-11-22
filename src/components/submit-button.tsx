@@ -7,6 +7,7 @@ export function SubmitButton({
   children,
   pendingLabel,
   className = "",
+  disabled,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   pendingLabel?: string;
@@ -15,8 +16,8 @@ export function SubmitButton({
   return (
     <button
       type="submit"
-      disabled={pending || props.disabled}
-      className={`inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 ${className}`}
+      disabled={pending || disabled}
+      className={`inline-flex min-h-10 items-center justify-center rounded-lg bg-indigo-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-400 dark:text-indigo-950 dark:hover:bg-indigo-300 ${className}`}
       {...props}
     >
       {pending ? (pendingLabel ?? "Please wait…") : children}

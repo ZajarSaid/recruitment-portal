@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import { JobForm } from "@/components/jobs/job-form";
 import { requireRole } from "@/lib/dal";
 import { toDateInputValue } from "@/lib/format";
-import { listDocumentTypes, listJobRequirements } from "@/lib/job-documents";
 import { getManagedJob } from "@/lib/jobs";
 
 export const metadata: Metadata = {
@@ -23,11 +22,6 @@ export default async function EditJobPage({
   if (!job) {
     notFound();
   }
-
-  const [documentTypes, requirements] = await Promise.all([
-    listDocumentTypes(),
-    listJobRequirements(job.id),
-  ]);
 
   return (
     <div>
@@ -50,17 +44,10 @@ export default async function EditJobPage({
             location: job.location,
             description: job.description,
             qualifications: job.qualifications,
+            category: job.category,
             opensAt: toDateInputValue(job.opensAt),
             closesAt: toDateInputValue(job.closesAt),
           }}
-          documentTypes={documentTypes}
-          requirements={requirements.map((requirement) => ({
-            id: requirement.id,
-            documentTypeId: requirement.documentTypeId,
-            customName: requirement.customName,
-            description: requirement.description,
-            requirementStatus: requirement.requirementStatus,
-          }))}
         />
       </div>
     </div>

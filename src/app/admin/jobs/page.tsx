@@ -6,6 +6,10 @@ import { AssignRecruiterForm } from "@/components/admin/assign-recruiter-form";
 import { requireRole } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { formatDate, humanizeStatus } from "@/lib/format";
+import {
+  JOB_CATEGORY_LABELS,
+  type JobCategoryValue,
+} from "@/lib/profile-documents";
 
 export const metadata: Metadata = {
   title: "Jobs oversight",
@@ -25,7 +29,7 @@ export default async function AdminJobsPage() {
     orderBy: { updatedAt: "desc" },
     include: {
       _count: {
-        select: { applications: true, documentRequirements: true },
+        select: { applications: true },
       },
       createdBy: { select: { name: true } },
       recruiter: { select: { name: true, email: true } },
@@ -70,16 +74,8 @@ export default async function AdminJobsPage() {
                   <Badge tone={statusTone[job.status] ?? "neutral"}>
                     {humanizeStatus(job.status)}
                   </Badge>
-                  <Badge
-                    tone={
-                      job._count.documentRequirements > 0 ? "blue" : "neutral"
-                    }
-                  >
-                    {job._count.documentRequirements > 0
-                      ? `${job._count.documentRequirements} document${
-                          job._count.documentRequirements === 1 ? "" : "s"
-                        } required`
-                      : "No documents"}
+                  <Badge tone="blue">
+                    {JOB_CATEGORY_LABELS[job.category as JobCategoryValue]}
                   </Badge>
                   {job._count.applications > 0 && (
                     <Link

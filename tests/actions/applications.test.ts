@@ -1,14 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { applyToJobAction } from "@/lib/actions/applications";
+import { uploadStagedDocumentAction } from "@/lib/actions/documents";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import { evaluateResume } from "@/lib/evaluation";
 import { resetRateLimits } from "@/lib/rate-limit";
+import { APPLICATION_LETTER_KEY } from "@/lib/profile-documents";
 import {
   createTestJob,
+  createTestProfile,
   createTestUser,
   formData,
+  testFile,
   toCurrentUser,
 } from "../harness/fixtures";
 import { resetCookies } from "../harness/cookies";
@@ -39,6 +43,26 @@ function applyForm(jobId: string, resumeSummary = GOOD_RESUME): FormData {
   return formData({ jobId, resumeSummary });
 }
 
+/** Stages the mandatory application letter for a candidate/job pair. */
+async function stageLetter(candidateId: string, jobId: string) {
+  currentUser.mockResolvedValue(
+    toCurrentUser(await prisma.user.findUniqueOrThrow({ where: { id: candidateId } })),
+  );
+  const upload = formData({ jobId, documentKey: APPLICATION_LETTER_KEY });
+  upload.set("file", testFile());
+  const state = await uploadStagedDocumentAction(undefined, upload);
+  expect(state?.ok).toBe(true);
+}
+
+/** Gives a candidate a complete master profile and a staged letter. */
+async function prepareCandidate(
+  candidateId: string,
+  jobId: string,
+): Promise<void> {
+  await createTestProfile({ userId: candidateId });
+  await stageLetter(candidateId, jobId);
+}
+
 beforeEach(() => {
   resetCookies();
   resetRateLimits();
@@ -46,11 +70,32 @@ beforeEach(() => {
 });
 
 describe("submitting an application", () => {
+  it("blocks 60% completion and accepts the application once the score is higher", async () => {
+    const recruiter = await createTestUser({ role: "RECRUITER" });
+    const candidate = await createTestUser();
+    const job = await createTestJob({ createdById: recruiter.id });
+    const profile = await createTestProfile({ userId: candidate.id });
+    await prisma.candidateProfile.update({
+      where: { id: profile.id },
+      data: { languages: null, computerLiteracy: null },
+    });
+    await stageLetter(candidate.id, job.id);
+
+    expect(await applyToJobAction(undefined, applyForm(job.id))).toMatchObject({
+      message: "Your profile is 60% complete. It must be above 60% to apply.",
+    });
+    await prisma.candidateProfile.update({
+      where: { id: profile.id },
+      data: { languages: "Kiswahili" },
+    });
+    expect(await expectRedirect(applyToJobAction(undefined, applyForm(job.id)))).toBe("/dashboard");
+  });
   it("creates the application, evaluation, and initial history entry", async () => {
     const recruiter = await createTestUser({ role: "RECRUITER" });
     const candidate = await createTestUser({ role: "CANDIDATE" });
     const job = await createTestJob({ createdById: recruiter.id, status: "PUBLISHED" });
     signIn(candidate);
+    await prepareCandidate(candidate.id, job.id);
 
     const target = await expectRedirect(applyToJobAction(undefined, applyForm(job.id)));
     expect(target).toBe("/dashboard");
@@ -79,6 +124,7 @@ describe("submitting an application", () => {
     const candidate = await createTestUser({ role: "CANDIDATE" });
     const job = await createTestJob({ createdById: recruiter.id });
     signIn(candidate);
+    await prepareCandidate(candidate.id, job.id);
 
     await expectRedirect(applyToJobAction(undefined, applyForm(job.id)));
 
@@ -100,6 +146,7 @@ describe("submitting an application", () => {
     const candidate = await createTestUser({ role: "CANDIDATE" });
     const job = await createTestJob({ createdById: recruiter.id });
     signIn(candidate);
+    await prepareCandidate(candidate.id, job.id);
 
     const data = applyForm(job.id);
     data.set("score", "10");
@@ -144,23 +191,21 @@ describe("submitting an application", () => {
     );
   });
 
-  it("rejects a resume summary that is too short", async () => {
+  it("accepts a short resume summary without a minimum length", async () => {
     const recruiter = await createTestUser({ role: "RECRUITER" });
     const candidate = await createTestUser({ role: "CANDIDATE" });
     const job = await createTestJob({ createdById: recruiter.id });
     signIn(candidate);
+    await prepareCandidate(candidate.id, job.id);
 
-    const state = await applyToJobAction(
-      undefined,
-      applyForm(job.id, "Too short."),
+    await expectRedirect(
+      applyToJobAction(undefined, applyForm(job.id, "Too short.")),
     );
 
-    expect(state?.errors?.resumeSummary).toBeDefined();
-    expect(
-      await prisma.application.findFirst({
-        where: { candidateId: candidate.id, jobId: job.id },
-      }),
-    ).toBeNull();
+    const application = await prisma.application.findUnique({
+      where: { candidateId_jobId: { candidateId: candidate.id, jobId: job.id } },
+    });
+    expect(application?.resumeSummary).toBe("Too short.");
   });
 });
 
@@ -241,6 +286,7 @@ describe("duplicate application prevention", () => {
     const candidate = await createTestUser({ role: "CANDIDATE" });
     const job = await createTestJob({ createdById: recruiter.id });
     signIn(candidate);
+    await prepareCandidate(candidate.id, job.id);
 
     await expectRedirect(applyToJobAction(undefined, applyForm(job.id)));
     const state = await applyToJobAction(undefined, applyForm(job.id));
@@ -276,9 +322,11 @@ describe("duplicate application prevention", () => {
     const job = await createTestJob({ createdById: recruiter.id });
 
     signIn(first);
+    await prepareCandidate(first.id, job.id);
     await expectRedirect(applyToJobAction(undefined, applyForm(job.id)));
 
     signIn(second);
+    await prepareCandidate(second.id, job.id);
     await expectRedirect(applyToJobAction(undefined, applyForm(job.id)));
 
     expect(await prisma.application.count({ where: { jobId: job.id } })).toBe(2);

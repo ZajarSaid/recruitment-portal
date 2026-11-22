@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmAction, notifyAction } from "@/components/action-feedback";
+
 import { useId, useRef, useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui";
@@ -10,18 +12,18 @@ import {
   type StagedDocumentInfo,
 } from "@/lib/actions/documents";
 
-export type RequirementSummary = {
-  id: string;
+export type DocumentSpec = {
+  key: string;
   label: string;
   description: string | null;
-  requirementStatus: "REQUIRED" | "OPTIONAL";
+  required: boolean;
 };
 
 type UploadStatus = "idle" | "uploading" | "error";
 
 export function DocumentUploadField({
   jobId,
-  requirement,
+  document: spec,
   initial,
   accept,
   maxBytes,
@@ -29,13 +31,13 @@ export function DocumentUploadField({
   onChange,
 }: {
   jobId: string;
-  requirement: RequirementSummary;
+  document: DocumentSpec;
   initial: StagedDocumentInfo | null;
   accept: string;
   maxBytes: number;
   disabled?: boolean;
   onChange: (
-    requirementId: string,
+    documentKey: string,
     document: StagedDocumentInfo | null,
     uploading: boolean,
   ) => void;
@@ -47,30 +49,38 @@ export function DocumentUploadField({
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const required = requirement.requirementStatus === "REQUIRED";
+  const required = spec.required;
   const busy = pending || status === "uploading";
 
   function handleFile(file: File) {
     const formData = new FormData();
     formData.set("jobId", jobId);
-    formData.set("requirementId", requirement.id);
+    formData.set("documentKey", spec.key);
     formData.set("file", file);
 
     setStatus("uploading");
     setMessage(null);
-    onChange(requirement.id, document, true);
+    onChange(spec.key, document, true);
 
     startTransition(async () => {
-      const result = await uploadStagedDocumentAction(undefined, formData);
+      const result = await uploadStagedDocumentAction(
+        undefined,
+        formData,
+      ).catch(() => undefined);
       if (result?.ok && result.document) {
         setDocument(result.document);
         setStatus("idle");
         setMessage("Uploaded.");
-        onChange(requirement.id, result.document, false);
+        notifyAction("Uploaded.", true);
+        onChange(spec.key, result.document, false);
       } else {
         setStatus("error");
         setMessage(result?.message ?? "Upload failed. Please try again.");
-        onChange(requirement.id, document, false);
+        notifyAction(
+          result?.message ?? "Upload failed. Please try again.",
+          false,
+        );
+        onChange(spec.key, document, false);
       }
     });
   }
@@ -78,23 +88,28 @@ export function DocumentUploadField({
   function handleRemove() {
     const formData = new FormData();
     formData.set("jobId", jobId);
-    formData.set("requirementId", requirement.id);
+    formData.set("documentKey", spec.key);
 
     setStatus("uploading");
     setMessage(null);
-    onChange(requirement.id, document, true);
+    onChange(spec.key, document, true);
 
     startTransition(async () => {
-      const result = await removeStagedDocumentAction(undefined, formData);
+      const result = await removeStagedDocumentAction(
+        undefined,
+        formData,
+      ).catch(() => undefined);
       if (result?.ok) {
         setDocument(null);
         setStatus("idle");
         setMessage(null);
-        onChange(requirement.id, null, false);
+        onChange(spec.key, null, false);
+        notifyAction("Document removed.", true);
       } else {
         setStatus("error");
         setMessage(result?.message ?? "Could not remove the file.");
-        onChange(requirement.id, document, false);
+        notifyAction(result?.message ?? "Could not remove the file.", false);
+        onChange(spec.key, document, false);
       }
     });
   }
@@ -104,11 +119,11 @@ export function DocumentUploadField({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-            {requirement.label}
+            {spec.label}
           </p>
-          {requirement.description && (
+          {spec.description && (
             <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              {requirement.description}
+              {spec.description}
             </p>
           )}
         </div>
@@ -134,7 +149,13 @@ export function DocumentUploadField({
             </label>
             <button
               type="button"
-              onClick={handleRemove}
+              onClick={() =>
+                confirmAction(
+                  "Remove this attachment?",
+                  "Remove attachment",
+                  handleRemove,
+                )
+              }
               disabled={busy || disabled}
               className="text-sm font-medium text-red-600 hover:underline disabled:opacity-60 dark:text-red-400"
             >

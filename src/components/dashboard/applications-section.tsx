@@ -6,13 +6,13 @@ import { summarizeApplicationDocuments, resolveRequirementViews } from "@/lib/ap
 import { formatDate, humanizeStatus } from "@/lib/format";
 import { Badge, Card, EmptyState } from "@/components/ui";
 
-export default async function DashboardApplications() {
+export default async function DashboardApplications({ embedded = false }: { embedded?: boolean }) {
   const user = await requireUser();
   if (user.role !== "CANDIDATE") return null;
 
   const applications = await prisma.application.findMany({
     where: { candidateId: user.id },
-    orderBy: { submittedAt: "desc" },
+    orderBy: [{ updatedAt: "desc" }, { submittedAt: "desc" }],
     include: {
       job: {
         select: {
@@ -20,24 +20,13 @@ export default async function DashboardApplications() {
           title: true,
           department: true,
           location: true,
-          documentRequirements: {
-            orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
-            select: {
-              id: true,
-              customName: true,
-              description: true,
-              requirementStatus: true,
-              displayOrder: true,
-              documentType: { select: { name: true } },
-            },
-          },
         },
       },
       evaluation: { select: { score: true, method: true, notes: true, evaluatedAt: true } },
       documents: {
         select: {
           id: true,
-          jobDocumentRequirementId: true,
+          documentKey: true,
           requirementKey: true,
           originalFileName: true,
           mimeType: true,
@@ -50,16 +39,16 @@ export default async function DashboardApplications() {
   });
 
   return (
-    <section className="mt-8">
+    <section className={embedded ? "rounded-2xl border border-indigo-100 bg-white p-4 sm:p-6 dark:border-zinc-800 dark:bg-zinc-950" : "mt-8"}>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-          My applications
+          {embedded ? "My applications" : "Submitted applications"}
         </h2>
         <Link
           href="/jobs"
           className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
         >
-          Browse jobs →
+          Browse jobs
         </Link>
       </div>
 
@@ -80,37 +69,29 @@ export default async function DashboardApplications() {
         <div className="space-y-3">
           {applications.map((app) => {
             const summary = summarizeApplicationDocuments(
-              resolveRequirementViews(
-                app,
-                app.job.documentRequirements,
-                app.documents,
-              ),
+              resolveRequirementViews(app),
               app.documents,
             );
             return (
               <Card key={app.id} className="p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <span className="font-medium text-zinc-900 dark:text-zinc-50">
-                      {app.job.title}
-                    </span>
+                    <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                      <Link href={`/applications/${app.id}`} className="hover:underline">
+                        {app.job.title}
+                      </Link>
+                    </h3>
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">
                       {app.job.department} · {app.job.location}
                     </p>
-                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      Submitted {formatDate(app.submittedAt)}
+                    <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                      Last updated <time dateTime={app.updatedAt.toISOString()}>{formatDate(app.updatedAt)}</time>
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <Badge tone={statusTone[app.status] ?? "neutral"}>
                       {humanizeStatus(app.status)}
                     </Badge>
-                    <Link
-                      href={`/applications/${app.id}`}
-                      className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-                    >
-                      View status →
-                    </Link>
                   </div>
                 </div>
                 {app.evaluation && (
@@ -128,26 +109,26 @@ export default async function DashboardApplications() {
                 )}
 
                 {summary.requirements.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-50">
+                  <details className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                    <summary className="cursor-pointer text-sm font-semibold text-zinc-900 dark:text-zinc-50">
                       Submitted documents
-                    </p>
-                    <ul className="mt-1 space-y-1">
+                    </summary>
+                    <ul className="mt-3 space-y-2">
                       {summary.requirements.map((item) => (
                         <li
                           key={item.id}
-                          className="flex flex-wrap items-center justify-between gap-2 text-xs"
+                          className="flex flex-wrap items-center justify-between gap-2 text-sm"
                         >
                           <span className="text-zinc-700 dark:text-zinc-300">
                             {item.label}
                           </span>
                           {item.document ? (
-                            <span className="flex items-center gap-2">
+                            <span className="flex min-w-0 flex-wrap items-center gap-2">
                               <a
                                 href={`/applications/${app.id}/documents/${item.document.id}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                                className="wrap-anywhere font-medium text-indigo-600 hover:underline dark:text-indigo-400"
                               >
                                 {item.document.originalFileName}
                               </a>
@@ -161,7 +142,7 @@ export default async function DashboardApplications() {
                         </li>
                       ))}
                     </ul>
-                  </div>
+                  </details>
                 )}
               </Card>
             );

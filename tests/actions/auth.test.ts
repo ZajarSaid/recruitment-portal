@@ -1,19 +1,46 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   loginAction,
   logoutAction,
   registerAction,
+  forgotPasswordAction,
 } from "@/lib/actions/auth";
 import { prisma } from "@/lib/db";
+import { schedulePasswordResetEmail } from "@/lib/email/password-reset-email";
 import { resetRateLimits } from "@/lib/rate-limit";
 import {
   decryptSession,
   SESSION_COOKIE_NAME,
 } from "@/lib/session-core";
-import { DEFAULT_TEST_PASSWORD, formData, uniqueEmail } from "../harness/fixtures";
+import { createTestUser, DEFAULT_TEST_PASSWORD, formData, uniqueEmail } from "../harness/fixtures";
 import { getCookie, resetCookies } from "../harness/cookies";
 import { expectRedirect } from "../harness/redirect";
+
+vi.mock("@/lib/email/password-reset-email", () => ({
+  schedulePasswordResetEmail: vi.fn(),
+}));
+
+describe("password reset email", () => {
+  it("queues a reset email for an active account without exposing the link in the response", async () => {
+    const user = await createTestUser();
+    vi.stubEnv("RESEND_API_KEY", "test-key");
+
+    try {
+      const state = await forgotPasswordAction(undefined, formData({ email: user.email }));
+      const unknown = await forgotPasswordAction(undefined, formData({ email: uniqueEmail() }));
+      expect(state).toEqual(unknown);
+      expect(state?.ok).toBe(true);
+      expect(state?.resetLink).toBeUndefined();
+      expect(schedulePasswordResetEmail).toHaveBeenCalledExactlyOnceWith(
+        user.email,
+        expect.stringMatching(/^http:\/\/localhost:3000\/reset-password\?token=[0-9a-f]{64}$/),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
 
 describe("registration", () => {
   beforeEach(() => {
@@ -32,7 +59,7 @@ describe("registration", () => {
 
     const target = await expectRedirect(registerAction(undefined, data));
 
-    expect(target).toBe("/dashboard");
+    expect(target).toBe("/profile");
 
     const user = await prisma.user.findUnique({ where: { email } });
     expect(user).not.toBeNull();
@@ -208,7 +235,9 @@ describe("login", () => {
         formData({ email, password: DEFAULT_TEST_PASSWORD, next: "//evil.example" }),
       ),
     );
-    expect(openRedirect).toBe("/dashboard");
+    // An unsafe `next` is discarded; a candidate without a complete profile
+    // is then sent to the profile page instead of the dashboard.
+    expect(openRedirect).toBe("/profile");
 
     resetCookies();
 
@@ -219,6 +248,54 @@ describe("login", () => {
       ),
     );
     expect(safeRedirect).toBe("/jobs");
+  });
+
+  it("sends a candidate without a complete profile to the profile page", async () => {
+    const email = uniqueEmail("no-profile");
+    const { hashPassword } = await import("@/lib/password");
+    await prisma.user.create({
+      data: {
+        name: "Fresh Candidate",
+        email,
+        passwordHash: await hashPassword(DEFAULT_TEST_PASSWORD),
+        role: "CANDIDATE",
+      },
+    });
+
+    const target = await expectRedirect(
+      loginAction(undefined, formData({ email, password: DEFAULT_TEST_PASSWORD })),
+    );
+    expect(target).toBe("/profile");
+  });
+
+  it("sends a candidate with a complete profile to their dashboard", async () => {
+    const email = uniqueEmail("with-profile");
+    const { hashPassword } = await import("@/lib/password");
+    const user = await prisma.user.create({
+      data: {
+        name: "Complete Candidate",
+        email,
+        passwordHash: await hashPassword(DEFAULT_TEST_PASSWORD),
+        role: "CANDIDATE",
+      },
+    });
+    await prisma.candidateProfile.create({
+      data: {
+        userId: user.id,
+        educationLevel: "BACHELOR",
+        birthYear: 1995,
+        birthMonth: 6,
+        physicalAddress: "Plot 1, Test Street, Dodoma",
+        computerLiteracy: "INTERMEDIATE",
+        languages: "Kiswahili, English",
+        category: "GENERAL",
+      },
+    });
+
+    const target = await expectRedirect(
+      loginAction(undefined, formData({ email, password: DEFAULT_TEST_PASSWORD })),
+    );
+    expect(target).toBe("/dashboard");
   });
 });
 

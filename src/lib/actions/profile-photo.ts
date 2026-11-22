@@ -1,14 +1,13 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import { storeUploadedFile } from "@/lib/cloud-storage";
 import { validateImageUpload } from "@/lib/uploads";
 
 /**
- * Uploads a candidate's profile photograph before the application is
- * submitted. Nothing is persisted here: the resulting asset reference and URL
- * are returned to the client and carried into the application on submission.
- * The previous photo, if any, is replaced when the application is saved.
+ * Uploads and saves the photo independently of other profile edits.
  */
 
 export type ProfilePhotoState =
@@ -32,7 +31,10 @@ export async function uploadProfilePhotoAction(
     return { ok: false, message: "You must be signed in to upload a photo." };
   }
   if (user.role !== "CANDIDATE") {
-    return { ok: false, message: "Only candidates can upload a profile photo." };
+    return {
+      ok: false,
+      message: "Only candidates can upload a profile photo.",
+    };
   }
 
   const file = formData.get("file");
@@ -52,6 +54,13 @@ export async function uploadProfilePhotoAction(
       resourceType: "image",
     });
 
+    const photo = { photoUrl: stored.url, photoPublicId: stored.reference };
+    await prisma.candidateProfile.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id, ...photo },
+      update: photo,
+    });
+    revalidatePath("/profile");
     return {
       ok: true,
       url: stored.url,
@@ -61,6 +70,20 @@ export async function uploadProfilePhotoAction(
       fileSize: validation.fileSize,
     };
   } catch {
-    return { ok: false, message: "Failed to upload the photo. Please try again." };
+    return {
+      ok: false,
+      message: "Failed to upload the photo. Please try again.",
+    };
   }
+}
+
+export async function removeProfilePhotoAction() {
+  const user = await getCurrentUser();
+  if (user?.role !== "CANDIDATE") return { ok: false };
+  await prisma.candidateProfile.updateMany({
+    where: { userId: user.id },
+    data: { photoUrl: null, photoPublicId: null },
+  });
+  revalidatePath("/profile");
+  return { ok: true };
 }

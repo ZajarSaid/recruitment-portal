@@ -1,0 +1,522 @@
+"use client";
+
+import { useFeedbackAction } from "@/components/action-feedback";
+
+import Link from "next/link";
+import {
+  startTransition,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+
+import { SubmitButton } from "@/components/submit-button";
+import { Alert, Field, Select, TextArea, TextInput } from "@/components/ui";
+import { ProfilePhotoField } from "@/components/applications/profile-photo-field";
+import {
+  ProfileDocumentField,
+  type ProfileDocumentInfo,
+} from "@/components/profile/profile-document-field";
+import { saveProfileAction } from "@/lib/actions/profile";
+import {
+  DOCUMENT_ACCEPT_ATTRIBUTE,
+  formatFileSize,
+} from "@/lib/document-files";
+import {
+  BIRTH_MONTH_LABELS,
+  CATEGORY_DOCUMENT_LISTS,
+  COMPUTER_LITERACY_LABELS,
+  COMPUTER_LITERACY_LEVELS,
+  EDUCATION_LEVEL_LABELS,
+  EDUCATION_LEVELS,
+  JOB_CATEGORIES,
+  JOB_CATEGORY_LABELS,
+  birthYearRange,
+  type JobCategoryValue,
+} from "@/lib/profile-documents";
+
+export type ProfileFormValues = {
+  educationLevel: string | null;
+  experienceSummary: string | null;
+  birthYear: number | null;
+  birthMonth: number | null;
+  physicalAddress: string | null;
+  computerLiteracy: string | null;
+  languages: string | null;
+  category: JobCategoryValue;
+  photoUrl: string | null;
+  photoPublicId: string | null;
+};
+
+const { min: MIN_YEAR, max: MAX_YEAR } = birthYearRange();
+
+const YEAR_OPTIONS = Array.from(
+  { length: MAX_YEAR - MIN_YEAR + 1 },
+  (_, index) => MAX_YEAR - index,
+);
+
+const sectionClassName = "space-y-5";
+
+const sectionHeadingClassName =
+  "border-b border-indigo-100 pb-3 text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl dark:border-zinc-800 dark:text-zinc-50";
+
+const profileSections = [
+  {
+    id: "personal-details",
+    label: "Personal details",
+    fields: [
+      "birthYear",
+      "birthMonth",
+      "physicalAddress",
+      "photoUrl",
+      "photoPublicId",
+    ],
+  },
+  {
+    id: "education",
+    label: "Academic information & documents",
+    fields: ["educationLevel", "category"],
+  },
+  { id: "experience", label: "Experience", fields: ["experienceSummary"] },
+  { id: "languages", label: "Language proficiency", fields: ["languages"] },
+  {
+    id: "computer-literacy",
+    label: "Computer literacy",
+    fields: ["computerLiteracy"],
+  },
+];
+
+export function ProfileForm({
+  initial,
+  initialDocuments,
+  savedPhotoSource,
+  maxBytes,
+  redirectToApply,
+  incompleteNotice,
+  overview,
+  applications,
+  showApplicationsInitially = false,
+}: {
+  initial: ProfileFormValues | null;
+  initialDocuments: ProfileDocumentInfo[];
+  savedPhotoSource?: string | null;
+  maxBytes: number;
+  redirectToApply: string | null;
+  incompleteNotice: boolean;
+  overview: ReactNode;
+  applications?: ReactNode;
+  showApplicationsInitially?: boolean;
+}) {
+  const entryPanel = showApplicationsInitially
+    ? "profile-applications"
+    : "profile-overview";
+  const [selection, setSelection] = useState({ entryPanel, panel: entryPanel });
+  const selected =
+    selection.entryPanel === entryPanel ? selection.panel : entryPanel;
+  function setSelected(panel: string) {
+    setSelection({ entryPanel, panel });
+  }
+  const [state, action, saving] = useFeedbackAction(
+    async (
+      previous: Awaited<ReturnType<typeof saveProfileAction>>,
+      data: FormData,
+    ) => {
+      const result = await saveProfileAction(previous, data);
+      const invalidSection = profileSections.find((section) =>
+        section.fields.some((field) => result?.errors?.[field]?.length),
+      );
+      if (invalidSection) setSelected(invalidSection.id);
+      return result;
+    },
+    undefined,
+  );
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving || anyUploading) return;
+    const data = new FormData(event.currentTarget);
+    startTransition(() => action(data));
+  }
+
+  const [category, setCategory] = useState<JobCategoryValue>(
+    initial?.category ?? "GENERAL",
+  );
+  const [documents, setDocuments] = useState<
+    Record<string, ProfileDocumentInfo | null>
+  >(() => {
+    const map: Record<string, ProfileDocumentInfo | null> = {};
+    for (const document of initialDocuments) {
+      map[document.documentKey] = document;
+    }
+    return map;
+  });
+  const [uploading, setUploading] = useState<Record<string, boolean>>({});
+
+  const specs = CATEGORY_DOCUMENT_LISTS[category];
+  const requiredSpecs = specs.filter((spec) => spec.required);
+
+  const handleDocumentChange = (
+    documentKey: string,
+    document: ProfileDocumentInfo | null,
+    isUploading: boolean,
+  ) => {
+    setDocuments((previous) => ({ ...previous, [documentKey]: document }));
+    setUploading((previous) => ({ ...previous, [documentKey]: isUploading }));
+  };
+
+  const missingRequired = requiredSpecs.filter((spec) => !documents[spec.key]);
+  const anyUploading = Object.values(uploading).some(Boolean);
+
+  const showingOverview = selected === "profile-overview";
+  const showingApplications = selected === "profile-applications";
+  const navButtonClass =
+    "w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-zinc-700 hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-indigo-600 aria-[current=true]:bg-indigo-100 aria-[current=true]:text-indigo-800 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:aria-[current=true]:bg-indigo-950 dark:aria-[current=true]:text-indigo-100";
+
+  return (
+    <div className="grid min-w-0 items-start gap-5 md:grid-cols-[14rem_minmax(0,1fr)] lg:grid-cols-[16rem_minmax(0,1fr)]">
+      <aside className="min-w-0 rounded-2xl border border-indigo-100 bg-white p-2 shadow-sm shadow-indigo-950/5 dark:border-zinc-800 dark:bg-zinc-950 md:sticky md:top-24">
+        <nav aria-label="Profile sections">
+          <button
+            type="button"
+            aria-current={showingOverview ? "true" : undefined}
+            aria-controls="profile-overview"
+            onClick={() => setSelected("profile-overview")}
+            className={navButtonClass}
+          >
+            Overview
+          </button>
+          {applications && (
+            <button
+              type="button"
+              aria-current={showingApplications ? "true" : undefined}
+              aria-controls="profile-applications"
+              onClick={() => setSelected("profile-applications")}
+              className={navButtonClass}
+            >
+              My applications
+            </button>
+          )}
+          <ul className="grid grid-cols-2 gap-1 md:grid-cols-1">
+            {profileSections.map(({ id, label }) => (
+              <li key={id} className="min-w-0">
+                <button
+                  type="button"
+                  aria-current={selected === id ? "true" : undefined}
+                  aria-controls={`profile-section-${id}`}
+                  onClick={() => setSelected(id)}
+                  className={navButtonClass}
+                >
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </aside>
+      <div className="min-w-0 space-y-5">
+        {incompleteNotice && (
+          <Alert tone="info">
+            Bring your profile completion above 60% before applying.
+          </Alert>
+        )}
+        <div id="profile-overview" hidden={!showingOverview}>
+          {overview}
+          {redirectToApply && (
+            <Link
+              href={redirectToApply}
+              className="mt-5 inline-flex text-sm font-semibold text-indigo-700 hover:underline dark:text-indigo-300"
+            >
+              Back to application
+            </Link>
+          )}
+        </div>
+        {applications && (
+          <div id="profile-applications" hidden={!showingApplications}>
+            {applications}
+          </div>
+        )}
+        <form
+          onSubmit={handleSubmit}
+          hidden={showingOverview || showingApplications}
+          className="min-w-0 space-y-5 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-950/5 sm:p-6 dark:border-zinc-800 dark:bg-zinc-950"
+          noValidate
+        >
+          <section
+            id="profile-section-personal-details"
+            hidden={selected !== "personal-details"}
+            className={sectionClassName}
+          >
+            <h2 className={sectionHeadingClassName}>Personal details</h2>
+
+            <ProfilePhotoField
+              initial={
+                initial?.photoUrl || initial?.photoPublicId
+                  ? {
+                      url: initial.photoUrl,
+                      publicId: initial.photoPublicId ?? "",
+                    }
+                  : null
+              }
+              maxBytes={maxBytes}
+              savedPreview={savedPhotoSource}
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Birth year"
+                htmlFor="birthYear"
+                error={state?.errors?.birthYear}
+              >
+                <Select
+                  id="birthYear"
+                  name="birthYear"
+                  defaultValue={
+                    initial?.birthYear ? String(initial.birthYear) : ""
+                  }
+                >
+                  <option value="">Select year…</option>
+                  {YEAR_OPTIONS.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
+              <Field
+                label="Birth month"
+                htmlFor="birthMonth"
+                error={state?.errors?.birthMonth}
+              >
+                <Select
+                  id="birthMonth"
+                  name="birthMonth"
+                  defaultValue={
+                    initial?.birthMonth ? String(initial.birthMonth) : ""
+                  }
+                >
+                  <option value="">Select month…</option>
+                  {BIRTH_MONTH_LABELS.map((label, index) => (
+                    <option key={label} value={index + 1}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+
+            <Field
+              label="Physical address"
+              htmlFor="physicalAddress"
+              error={state?.errors?.physicalAddress}
+            >
+              <TextArea
+                id="physicalAddress"
+                name="physicalAddress"
+                rows={2}
+                defaultValue={initial?.physicalAddress ?? ""}
+
+                placeholder="Street, ward, district, region"
+              />
+            </Field>
+          </section>
+
+          <section
+            id="profile-section-education"
+            hidden={selected !== "education"}
+            className={sectionClassName}
+          >
+            <h2 className={sectionHeadingClassName}>
+              Academic information &amp; documents
+            </h2>
+
+            <Field
+              label="Highest education level"
+              htmlFor="educationLevel"
+              error={state?.errors?.educationLevel}
+            >
+              <Select
+                id="educationLevel"
+                name="educationLevel"
+                defaultValue={initial?.educationLevel ?? ""}
+              >
+                <option value="">Select level…</option>
+                {EDUCATION_LEVELS.map((level) => (
+                  <option key={level} value={level}>
+                    {EDUCATION_LEVEL_LABELS[level]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field
+              label="Professional category"
+              htmlFor="category"
+              error={state?.errors?.category}
+              hint="This determines which supporting documents your profile asks for."
+            >
+              <Select
+                id="category"
+                name="category"
+                value={category}
+                onChange={(event) =>
+                  setCategory(event.target.value as JobCategoryValue)
+                }
+              >
+                {JOB_CATEGORIES.map((value) => (
+                  <option key={value} value={value}>
+                    {JOB_CATEGORY_LABELS[value]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-semibold text-zinc-950 dark:text-zinc-50">
+                  Supporting documents
+                </h3>
+                {requiredSpecs.length > 0 && (
+                  <p
+                    aria-live="polite"
+                    className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
+                  >
+                    {requiredSpecs.length - missingRequired.length}
+                    {" of "}
+                    {requiredSpecs.length} required uploaded
+                  </p>
+                )}
+              </div>
+              {specs.length === 0 ? (
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                  No supporting documents are listed for this category.
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                    PDF, JPEG, or PNG up to {formatFileSize(maxBytes)} per file.
+                  </p>
+                  {!initial && (
+                    <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                      Save your profile below to enable document uploads.
+                    </p>
+                  )}
+                  <ul className="divide-y divide-indigo-100 rounded-xl border border-indigo-100 dark:divide-zinc-800 dark:border-zinc-800">
+                    {specs.map((spec) => (
+                      <li key={spec.key}>
+                        <ProfileDocumentField
+                          document={spec}
+                          initial={documents[spec.key] ?? null}
+                          accept={DOCUMENT_ACCEPT_ATTRIBUTE}
+                          canUpload={Boolean(initial)}
+                          onChange={handleDocumentChange}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                  {missingRequired.length > 0 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Still required:{" "}
+                      {missingRequired.map((spec) => spec.label).join(", ")}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+
+          <section
+            id="profile-section-experience"
+            hidden={selected !== "experience"}
+            className={sectionClassName}
+          >
+            <h2 className={sectionHeadingClassName}>Experience</h2>
+            <Field
+              label="Experience summary (optional)"
+              htmlFor="experienceSummary"
+              error={state?.errors?.experienceSummary}
+              hint="Include relevant work, internships, volunteering, or projects."
+            >
+              <TextArea
+                id="experienceSummary"
+                name="experienceSummary"
+                defaultValue={initial?.experienceSummary ?? ""}
+                rows={4}
+                maxLength={2000}
+              />
+            </Field>
+          </section>
+
+          <section
+            id="profile-section-computer-literacy"
+            hidden={selected !== "computer-literacy"}
+            className={sectionClassName}
+          >
+            <h2 className={sectionHeadingClassName}>Computer literacy</h2>
+            <Field
+              label="Computer literacy"
+              htmlFor="computerLiteracy"
+              error={state?.errors?.computerLiteracy}
+            >
+              <Select
+                id="computerLiteracy"
+                name="computerLiteracy"
+                defaultValue={initial?.computerLiteracy ?? ""}
+              >
+                <option value="">Select level…</option>
+                {COMPUTER_LITERACY_LEVELS.map((level) => (
+                  <option key={level} value={level}>
+                    {COMPUTER_LITERACY_LABELS[level]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </section>
+          <section
+            id="profile-section-languages"
+            hidden={selected !== "languages"}
+            className={sectionClassName}
+          >
+            <h2 className={sectionHeadingClassName}>Language proficiency</h2>
+            <Field
+              label="Languages you speak"
+              htmlFor="languages"
+              error={state?.errors?.languages}
+              hint="Separate languages with commas. You can include your proficiency for each language."
+            >
+              <TextInput
+                id="languages"
+                name="languages"
+                defaultValue={initial?.languages ?? ""}
+
+                placeholder="Kiswahili (fluent), English (intermediate)"
+              />
+            </Field>
+          </section>
+
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-indigo-100 pt-4 dark:border-zinc-800">
+            {state?.message && (
+              <div className="w-full" role={state.ok ? "status" : "alert"}>
+                <Alert tone={state.ok ? "success" : "error"}>
+                  {state.message}
+                </Alert>
+              </div>
+            )}
+            <SubmitButton disabled={saving || anyUploading}>
+              {saving ? "Saving profile…" : "Save profile"}
+            </SubmitButton>
+            {redirectToApply && (
+              <Link
+                href={redirectToApply}
+                className="text-sm text-zinc-600 hover:underline dark:text-zinc-300"
+              >
+                {incompleteNotice
+                  ? "Continue to your application"
+                  : "Back to application"}
+              </Link>
+            )}
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

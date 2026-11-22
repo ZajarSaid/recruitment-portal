@@ -70,6 +70,7 @@ export type TestJobOptions = {
   location?: string;
   description?: string;
   qualifications?: string;
+  category?: "GENERAL" | "MEDICINE" | "IT" | "BUSINESS";
   status?: "DRAFT" | "PUBLISHED" | "CLOSED";
   opensAt?: Date;
   closesAt?: Date;
@@ -90,6 +91,7 @@ export async function createTestJob(options: TestJobOptions) {
       qualifications:
         options.qualifications ??
         "Degree in a relevant field and at least two years of experience.",
+      category: options.category ?? "GENERAL",
       status: options.status ?? "PUBLISHED",
       opensAt: options.opensAt ?? new Date(now - DAY),
       closesAt: options.closesAt ?? new Date(now + DAY),
@@ -129,39 +131,38 @@ export function formData(fields: Record<string, string>): FormData {
   return data;
 }
 
-export async function createTestDocumentType(
+/** Creates a complete candidate master profile (GENERAL category by default). */
+export async function createTestProfile(
   options: {
-    name?: string;
-    description?: string;
-    category?: string;
-  } = {},
+    userId: string;
+    educationLevel?:
+      | "NONE"
+      | "PRIMARY"
+      | "SECONDARY"
+      | "CERTIFICATE"
+      | "DIPLOMA"
+      | "BACHELOR"
+      | "MASTER"
+      | "DOCTORATE";
+    birthYear?: number;
+    birthMonth?: number;
+    physicalAddress?: string;
+    computerLiteracy?: "BASIC" | "INTERMEDIATE" | "ADVANCED";
+    languages?: string;
+    category?: "GENERAL" | "MEDICINE" | "IT" | "BUSINESS";
+  } = { userId: "" },
 ) {
-  const name = options.name ?? `Document ${uniqueId("type")}`;
-  return prisma.documentType.create({
+  return prisma.candidateProfile.create({
     data: {
-      name,
-      description: options.description ?? "A reusable document type.",
-      category: options.category ?? "General",
-    },
-  });
-}
-
-export async function createTestRequirement(options: {
-  jobId: string;
-  documentTypeId?: string | null;
-  customName?: string | null;
-  description?: string | null;
-  requirementStatus?: "REQUIRED" | "OPTIONAL";
-  displayOrder?: number;
-}) {
-  return prisma.jobDocumentRequirement.create({
-    data: {
-      jobId: options.jobId,
-      documentTypeId: options.documentTypeId ?? null,
-      customName: options.customName ?? null,
-      description: options.description ?? null,
-      requirementStatus: options.requirementStatus ?? "REQUIRED",
-      displayOrder: options.displayOrder ?? 0,
+      userId: options.userId,
+      educationLevel: options.educationLevel ?? "BACHELOR",
+      birthYear: options.birthYear ?? 1995,
+      birthMonth: options.birthMonth ?? 6,
+      physicalAddress:
+        options.physicalAddress ?? "Plot 1, Test Street, Dodoma",
+      computerLiteracy: options.computerLiteracy ?? "INTERMEDIATE",
+      languages: options.languages ?? "Kiswahili, English",
+      category: options.category ?? "GENERAL",
     },
   });
 }
@@ -185,7 +186,7 @@ export function testFile(
 export async function createTestStagedDocument(options: {
   candidateId: string;
   jobId: string;
-  requirementId: string;
+  documentKey: string;
   storageKey?: string;
   originalFileName?: string;
 }) {
@@ -193,7 +194,7 @@ export async function createTestStagedDocument(options: {
     data: {
       candidateId: options.candidateId,
       jobId: options.jobId,
-      jobDocumentRequirementId: options.requirementId,
+      documentKey: options.documentKey,
       storageKey:
         options.storageKey ??
         `documents/${options.candidateId}/${uniqueId("staged")}.pdf`,
@@ -206,7 +207,7 @@ export async function createTestStagedDocument(options: {
 
 export async function createTestApplicationDocument(options: {
   applicationId: string;
-  requirementId?: string | null;
+  documentKey?: string | null;
   requirementKey?: string | null;
   storageKey?: string;
   originalFileName?: string;
@@ -216,7 +217,7 @@ export async function createTestApplicationDocument(options: {
   return prisma.applicationDocument.create({
     data: {
       applicationId: options.applicationId,
-      jobDocumentRequirementId: options.requirementId ?? null,
+      documentKey: options.documentKey ?? null,
       requirementKey: options.requirementKey ?? null,
       storageKey:
         options.storageKey ??

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { decodeJwt } from "jose";
 
 import {
   decryptSession,
@@ -21,6 +22,15 @@ describe("session token", () => {
   it("returns null when no token is supplied", async () => {
     expect(await decryptSession(undefined)).toBeNull();
   });
+
+  it.each([["CANDIDATE", 24], ["RECRUITER", 8], ["ADMIN", 8]])(
+    "limits the %s token to %i hours",
+    async (role, hours) => {
+      const token = await encryptSession({ userId: "user-1", role });
+      const { exp, iat } = decodeJwt(token);
+      expect(exp! - iat!).toBe(hours * 3600);
+    },
+  );
 
   it("returns null for a tampered token", async () => {
     const token = await encryptSession({ userId: "user-1", role: "ADMIN" });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { confirmForm, useFeedbackAction } from "@/components/action-feedback";
 
 import { SubmitButton } from "@/components/submit-button";
 import { Alert } from "@/components/ui";
@@ -8,15 +8,17 @@ import { setJobStatusAction } from "@/lib/actions/jobs";
 
 type StatusValue = "DRAFT" | "PUBLISHED" | "CLOSED";
 
-const TRANSITIONS: Record<StatusValue, { status: StatusValue; label: string }[]> =
-  {
-    DRAFT: [
-      { status: "PUBLISHED", label: "Publish" },
-      { status: "CLOSED", label: "Close" },
-    ],
-    PUBLISHED: [{ status: "CLOSED", label: "Close" }],
-    CLOSED: [{ status: "PUBLISHED", label: "Reopen" }],
-  };
+const TRANSITIONS: Record<
+  StatusValue,
+  { status: StatusValue; label: string }[]
+> = {
+  DRAFT: [
+    { status: "PUBLISHED", label: "Publish" },
+    { status: "CLOSED", label: "Close" },
+  ],
+  PUBLISHED: [{ status: "CLOSED", label: "Close" }],
+  CLOSED: [{ status: "PUBLISHED", label: "Reopen" }],
+};
 
 export function JobStatusControls({
   jobId,
@@ -25,7 +27,7 @@ export function JobStatusControls({
   jobId: string;
   status: string;
 }) {
-  const [state, formAction] = useActionState(setJobStatusAction, undefined);
+  const [state, formAction] = useFeedbackAction(setJobStatusAction, undefined);
   const options = TRANSITIONS[status as StatusValue] ?? [];
 
   return (
@@ -41,7 +43,17 @@ export function JobStatusControls({
       ) : (
         <div className="flex flex-wrap gap-2">
           {options.map((option) => (
-            <form key={option.status} action={formAction}>
+            <form
+              key={option.status}
+              action={formAction}
+              onSubmit={(event) =>
+                confirmForm(
+                  event,
+                  `${option.label} this vacancy?`,
+                  option.label,
+                )
+              }
+            >
               <input type="hidden" name="id" value={jobId} />
               <input type="hidden" name="status" value={option.status} />
               <SubmitButton

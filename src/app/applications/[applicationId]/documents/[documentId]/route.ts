@@ -1,6 +1,9 @@
 import type { NextRequest } from "next/server";
 
-import { getAccessibleApplicationDocument } from "@/lib/application-documents";
+import {
+  getAccessibleApplicationDocument,
+  getAccessibleApplicationProfileDocument,
+} from "@/lib/application-documents";
 import { resolveStoredUpload } from "@/lib/cloud-storage";
 import { getCurrentUser } from "@/lib/dal";
 
@@ -28,11 +31,9 @@ export async function GET(
   }
 
   const { applicationId, documentId } = await ctx.params;
-  const document = await getAccessibleApplicationDocument(
-    documentId,
-    applicationId,
-    user,
-  );
+  const document = request.nextUrl.searchParams.get("source") === "profile"
+    ? await getAccessibleApplicationProfileDocument(documentId, applicationId, user)
+    : await getAccessibleApplicationDocument(documentId, applicationId, user);
   if (!document) {
     // Deliberately generic: do not reveal whether the document exists.
     return new Response("Not found", { status: 404 });

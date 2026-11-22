@@ -1,36 +1,32 @@
-import Link from "next/link";
+import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 
-export default function AdminLayout({
+import { isAdminHost } from "@/lib/admin-access";
+import { getCurrentUser } from "@/lib/dal";
+import { StaffWorkspace } from "@/components/staff-workspace";
+
+const sections = [
+  { href: "/admin", label: "Overview" },
+  { href: "/admin/users", label: "Users and roles" },
+  { href: "/admin/jobs", label: "Jobs oversight" },
+  { href: "/admin/applications", label: "Applications oversight" },
+];
+
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  if (!isAdminHost((await headers()).get("host"))) notFound();
+  const user = await getCurrentUser();
+
+  if (user?.role !== "ADMIN") {
+    return <div className="mx-auto max-w-6xl px-4 py-8">{children}</div>;
+  }
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <nav className="flex flex-wrap gap-5 border-b border-zinc-200 pb-3 text-sm font-medium text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
-        <Link href="/admin" className="hover:text-zinc-900 dark:hover:text-white">
-          Overview
-        </Link>
-        <Link
-          href="/admin/users"
-          className="hover:text-zinc-900 dark:hover:text-white"
-        >
-          Users and roles
-        </Link>
-        <Link
-          href="/admin/jobs"
-          className="hover:text-zinc-900 dark:hover:text-white"
-        >
-          Jobs oversight
-        </Link>
-        <Link
-          href="/admin/applications"
-          className="hover:text-zinc-900 dark:hover:text-white"
-        >
-          Applications oversight
-        </Link>
-      </nav>
-      <div className="mt-6">{children}</div>
-    </div>
+    <StaffWorkspace title="Administrator workspace" sections={sections}>
+      {children}
+    </StaffWorkspace>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { confirmForm, useFeedbackAction } from "@/components/action-feedback";
+
+import { useState } from "react";
 
 import { SubmitButton } from "@/components/submit-button";
 import { Alert, Field, TextArea } from "@/components/ui";
@@ -8,134 +10,102 @@ import { applyToJobAction } from "@/lib/actions/applications";
 import type { StagedDocumentInfo } from "@/lib/actions/documents";
 import {
   DocumentUploadField,
-  type RequirementSummary,
+  type DocumentSpec,
 } from "@/components/applications/document-upload-field";
-import { ProfilePhotoField } from "@/components/applications/profile-photo-field";
+import { APPLICATION_LETTER_KEY } from "@/lib/profile-documents";
+
+const LETTER_SPEC: DocumentSpec = {
+  key: APPLICATION_LETTER_KEY,
+  label: "Signed application letter",
+  description:
+    "Scan or photograph your signed application letter for this vacancy and attach it as a PDF or image.",
+  required: true,
+};
 
 export function ApplicationForm({
   jobId,
-  requirements,
-  initialDocuments,
   accept,
   maxBytes,
-  initialPhoto,
+  initialLetter,
 }: {
   jobId: string;
-  requirements: RequirementSummary[];
-  initialDocuments: StagedDocumentInfo[];
   accept: string;
   maxBytes: number;
-  initialPhoto?: { url: string | null; publicId: string } | null;
+  initialLetter: StagedDocumentInfo | null;
 }) {
-  const [state, action] = useActionState(applyToJobAction, undefined);
+  const [state, action] = useFeedbackAction(applyToJobAction, undefined);
 
-  const [documents, setDocuments] = useState<
-    Record<string, StagedDocumentInfo | null>
-  >(() => {
-    const map: Record<string, StagedDocumentInfo | null> = {};
-    for (const requirement of requirements) map[requirement.id] = null;
-    for (const document of initialDocuments) {
-      if (document.requirementId in map) map[document.requirementId] = document;
-    }
-    return map;
-  });
-  const [uploading, setUploading] = useState<Record<string, boolean>>({});
+  const [letter, setLetter] = useState<StagedDocumentInfo | null>(
+    initialLetter,
+  );
+  const [uploading, setUploading] = useState(false);
 
-  function handleChange(
-    requirementId: string,
+  function handleLetterChange(
+    _key: string,
     document: StagedDocumentInfo | null,
     isUploading: boolean,
   ) {
-    setDocuments((previous) => ({ ...previous, [requirementId]: document }));
-    setUploading((previous) => ({ ...previous, [requirementId]: isUploading }));
+    setLetter(document);
+    setUploading(isUploading);
   }
 
-  const requiredRequirements = requirements.filter(
-    (requirement) => requirement.requirementStatus === "REQUIRED",
-  );
-  const optionalRequirements = requirements.filter(
-    (requirement) => requirement.requirementStatus === "OPTIONAL",
-  );
-  const missingRequired = requiredRequirements.filter(
-    (requirement) => !documents[requirement.id],
-  );
-  const anyUploading = Object.values(uploading).some(Boolean);
-  const canSubmit = missingRequired.length === 0 && !anyUploading;
-
-  const renderField = (requirement: RequirementSummary) => (
-    <DocumentUploadField
-      key={requirement.id}
-      jobId={jobId}
-      requirement={requirement}
-      initial={documents[requirement.id] ?? null}
-      accept={accept}
-      maxBytes={maxBytes}
-      onChange={handleChange}
-    />
-  );
+  const canSubmit = Boolean(letter) && !uploading;
 
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <form
+      action={action}
+      onSubmit={(event) =>
+        confirmForm(
+          event,
+          "Submit this application for review?",
+          "Submit application",
+        )
+      }
+      className="space-y-4"
+      noValidate
+    >
       {state?.message && <Alert tone="error">{state.message}</Alert>}
       <input type="hidden" name="jobId" value={jobId} />
 
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            Attach your application letter
+          </h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+            Upload a signed letter addressed to the recruitment team for this
+            vacancy.
+          </p>
+        </div>
+
+        <DocumentUploadField
+          jobId={jobId}
+          document={LETTER_SPEC}
+          initial={letter}
+          accept={accept}
+          maxBytes={maxBytes}
+          onChange={handleLetterChange}
+        />
+      </div>
+
       <Field
-        label="Resume summary / professional summary"
+        label="Additional notes / resume summary (optional)"
         htmlFor="resumeSummary"
         error={state?.errors?.resumeSummary}
-        hint="Summarize your education, experience, skills, and key achievements relevant to this role."
+        hint="Optionally add anything about your background you want the recruiters to read for this specific vacancy."
       >
         <TextArea
           id="resumeSummary"
           name="resumeSummary"
-          rows={8}
-          required
-          placeholder="Provide a clear, professional summary of your qualifications."
+          rows={6}
+          placeholder="Optional: summarize experience, skills, and key achievements relevant to this role."
         />
       </Field>
 
-      <ProfilePhotoField initial={initialPhoto} maxBytes={maxBytes} />
-
-      {requiredRequirements.length > 0 && (
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-              Required attachments
-            </h2>
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              Upload each required attachment. You can replace or remove files
-              before submitting.
-            </p>
-          </div>
-
-          {requiredRequirements.map(renderField)}
-
-          {missingRequired.length > 0 && (
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              Still required:{" "}
-              {missingRequired.map((requirement) => requirement.label).join(", ")}
-            </p>
-          )}
-        </div>
-      )}
-
-      {optionalRequirements.length > 0 && (
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-              Optional documents
-            </h2>
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              These documents are not required, but you may attach them if you
-              have them.
-            </p>
-          </div>
-
-          {optionalRequirements.map(renderField)}
-        </div>
-      )}
-
-      <SubmitButton pendingLabel="Submitting application…" disabled={!canSubmit}>
+      <SubmitButton
+        pendingLabel="Submitting application…"
+        disabled={!canSubmit}
+      >
         Submit application
       </SubmitButton>
     </form>

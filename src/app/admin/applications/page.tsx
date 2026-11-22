@@ -30,24 +30,13 @@ export default async function AdminApplicationsPage() {
         select: {
           id: true,
           title: true,
-          documentRequirements: {
-            orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
-            select: {
-              id: true,
-              customName: true,
-              description: true,
-              requirementStatus: true,
-              displayOrder: true,
-              documentType: { select: { name: true } },
-            },
-          },
         },
       },
       evaluation: { select: { score: true, method: true } },
       documents: {
         select: {
           id: true,
-          jobDocumentRequirementId: true,
+          documentKey: true,
           requirementKey: true,
           originalFileName: true,
           mimeType: true,
@@ -77,11 +66,7 @@ export default async function AdminApplicationsPage() {
         ) : (
           applications.map((application) => {
             const summary = summarizeApplicationDocuments(
-              resolveRequirementViews(
-                application,
-                application.job.documentRequirements,
-                application.documents,
-              ),
+              resolveRequirementViews(application),
               application.documents,
             );
             return (

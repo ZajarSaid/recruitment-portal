@@ -71,17 +71,27 @@ describe("updateUserRoleAction", () => {
 
   it("lets an administrator change another user's role", async () => {
     const admin = await createTestUser({ role: "ADMIN" });
-    const target = await createTestUser({ role: "CANDIDATE" });
+    const target = await createTestUser({ role: "RECRUITER" });
     signIn(admin);
 
     const state = await updateUserRoleAction(
       undefined,
-      formData({ userId: target.id, role: "RECRUITER" }),
+      formData({ userId: target.id, role: "ADMIN" }),
     );
 
     expect(state?.ok).toBe(true);
     const updated = await prisma.user.findUnique({ where: { id: target.id } });
-    expect(updated?.role).toBe("RECRUITER");
+    expect(updated?.role).toBe("ADMIN");
+  });
+
+  it("rejects candidate role changes even from an administrator", async () => {
+    const admin = await createTestUser({ role: "ADMIN" });
+    const candidate = await createTestUser({ role: "CANDIDATE" });
+    signIn(admin);
+
+    const result = await updateUserRoleAction(undefined, formData({ userId: candidate.id, role: "RECRUITER" }));
+    expect(result?.message).toBe("Candidate roles cannot be changed.");
+    expect(await prisma.user.findUnique({ where: { id: candidate.id } })).toMatchObject({ role: "CANDIDATE" });
   });
 
   it("stops an administrator from changing their own role", async () => {

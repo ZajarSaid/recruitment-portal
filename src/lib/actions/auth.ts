@@ -12,7 +12,9 @@ import {
   type ActionState,
 } from "@/lib/definitions";
 import { prisma } from "@/lib/db";
+import { schedulePasswordResetEmail } from "@/lib/email/password-reset-email";
 import { env } from "@/lib/env";
+import { flashFeedback } from "@/lib/flash-feedback";
 import { roleHome } from "@/lib/navigation";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
@@ -30,7 +32,7 @@ function hashResetToken(rawToken: string): string {
 
 /** Only allow same-site absolute paths to prevent open redirects. */
 function safeNextPath(value: string): string | null {
-  if (value.startsWith("/") && !value.startsWith("//")) {
+  if (value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")) {
     return value;
   }
   return null;
@@ -78,7 +80,10 @@ export async function registerAction(
   }
 
   await createSession({ userId: createdUser.id, role: createdUser.role });
-  redirect(roleHome(createdUser.role));
+  await flashFeedback("registered");
+  // New candidates land on their profile so they can fill their master
+  // details before applying to vacancies.
+  redirect("/profile");
 }
 
 export async function loginAction(
@@ -110,7 +115,7 @@ export async function loginAction(
   const passwordMatches =
     user !== null && (await verifyPassword(password, user.passwordHash));
 
-  if (!user || !passwordMatches) {
+  if (!user || !passwordMatches || user.role === "ADMIN") {
     return { message: "Invalid email or password." };
   }
 
@@ -119,11 +124,27 @@ export async function loginAction(
   }
 
   await createSession({ userId: user.id, role: user.role });
-  redirect(safeNextPath(formValue(formData, "next")) ?? roleHome(user.role));
+  await flashFeedback("signed-in");
+
+  const nextPath = safeNextPath(formValue(formData, "next"));
+  if (user.role === "CANDIDATE" && !nextPath) {
+    // Candidates who have not completed their master profile are sent to the
+    // profile page first; applying later only needs an application letter.
+    const profile = await prisma.candidateProfile.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+    if (!profile) {
+      redirect("/profile");
+    }
+  }
+
+  redirect(nextPath ?? roleHome(user.role));
 }
 
 export async function logoutAction(): Promise<void> {
   await deleteSession();
+  await flashFeedback("signed-out");
   redirect("/login");
 }
 
@@ -150,7 +171,7 @@ export async function forgotPasswordAction(
 
   let resetLink: string | undefined;
 
-  if (user) {
+  if (user?.isActive) {
     const rawToken = randomBytes(32).toString("hex");
     await prisma.passwordResetToken.create({
       data: {
@@ -160,19 +181,19 @@ export async function forgotPasswordAction(
       },
     });
 
-    const url = `${env.appUrl}/reset-password?token=${rawToken}`;
-    // Email delivery is not configured in this project; the link is logged on
-    // the server and surfaced in non-production so the flow can be demonstrated.
-    console.info(`[auth] password reset link for ${email}: ${url}`);
-    if (!env.isProduction) {
-      resetLink = url;
+    const url = new URL("/reset-password", env.appUrl);
+    url.searchParams.set("token", rawToken);
+    if (env.resendApiKey) {
+      schedulePasswordResetEmail(user.email, url.toString());
+    } else if (!env.isProduction) {
+      resetLink = url.toString();
     }
   }
 
   return {
     ok: true,
     message:
-      "If an account exists for that email address, a password reset link has been generated.",
+      "If there is an active account for that email, check your inbox for a password reset link.",
     resetLink,
   };
 }
@@ -205,16 +226,23 @@ export async function resetPasswordAction(
 
   const passwordHash = await hashPassword(password);
 
-  await prisma.$transaction([
-    prisma.user.update({
+  const reset = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.passwordResetToken.updateMany({
+      where: { id: record.id, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() },
+    });
+    if (claimed.count === 0) return false;
+    await tx.user.update({
       where: { id: record.userId },
       data: { passwordHash },
-    }),
-    prisma.passwordResetToken.update({
-      where: { id: record.id },
-      data: { usedAt: new Date() },
-    }),
-  ]);
+    });
+    await tx.userSession.deleteMany({ where: { userId: record.userId } });
+    return true;
+  });
+  if (!reset) {
+    return { errors: { token: ["This reset link is invalid or has expired."] } };
+  }
 
+  await flashFeedback("password-reset");
   redirect("/login?reset=1");
 }

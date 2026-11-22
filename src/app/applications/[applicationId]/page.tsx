@@ -43,14 +43,14 @@ export default async function ApplicationStatusPage({
   return (
     <main className="mx-auto max-w-xl px-4 py-12">
       <Link
-        href="/dashboard"
+        href="/profile?section=applications"
         className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
       >
-        ← Back to my applications
+        Back to my applications
       </Link>
 
       <Card className="mt-4 p-5">
-        <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
           Application status
         </p>
         <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">

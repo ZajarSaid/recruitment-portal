@@ -7,22 +7,28 @@ import { ActionState, toFieldErrors } from "@/lib/definitions";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import { getJobAvailability, isAcceptingApplications } from "@/lib/jobs";
-import { buildRequirementSnapshot } from "@/lib/application-documents";
-import { listJobRequirements, requirementLabel } from "@/lib/job-documents";
+import {
+  applicationLetterRequirement,
+  buildRequirementSnapshot,
+} from "@/lib/application-documents";
+import { APPLICATION_PROFILE_THRESHOLD, getProfileReadiness } from "@/lib/profile";
+import { flashFeedback } from "@/lib/flash-feedback";
+import { APPLICATION_LETTER_KEY } from "@/lib/profile-documents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { scheduleApplicationSubmittedEmails } from "@/lib/email/application-emails";
 
+// The resume summary is optional: candidates have already provided their
+// education, experience and documents on their master profile, so the
+// application only really needs the signed application letter.
 const applySchema = z.object({
   jobId: z.string().min(1, "Job not specified."),
   resumeSummary: z
     .string()
     .trim()
-    .min(20, "Resume summary must be at least 20 characters long.")
-    .max(10_000, "Resume summary must be at most 10000 characters long."),
-  photoUrl: z.string().trim().max(512).optional(),
-  photoPublicId: z.string().trim().max(255).optional(),
+    .max(10_000, "Resume summary must be at most 10000 characters long.")
+    .optional(),
 });
 
 function formDataToObject(formData: FormData): Record<string, string> {
@@ -50,9 +56,8 @@ export async function applyToJobAction(
     return { errors: toFieldErrors(parsed.error) };
   }
 
-  const { jobId, resumeSummary } = parsed.data;
-  const photoUrl = parsed.data.photoUrl || null;
-  const photoPublicId = parsed.data.photoPublicId || null;
+  const { jobId } = parsed.data;
+  const resumeSummary = parsed.data.resumeSummary?.trim() ?? "";
 
   const job = await prisma.job.findUnique({ where: { id: jobId } });
   if (!job) {
@@ -73,43 +78,44 @@ export async function applyToJobAction(
     return { message: "You have already applied for this job vacancy." };
   }
 
-  // Validate that every mandatory document has been staged before creating the
-  // application, so a partially uploaded submission can never be created.
-  const [requirements, staged] = await Promise.all([
-    listJobRequirements(jobId),
-    prisma.stagedDocument.findMany({
-      where: { candidateId: user.id, jobId },
-      select: {
-        storageKey: true,
-        cloudUrl: true,
-        originalFileName: true,
-        mimeType: true,
-        fileSize: true,
-        jobDocumentRequirementId: true,
-      },
-    }),
-  ]);
-
-  const stagedByRequirement = new Map(
-    staged.map((document) => [document.jobDocumentRequirementId, document]),
-  );
-
-  const missing = requirements.filter(
-    (requirement) =>
-      requirement.requirementStatus === "REQUIRED" &&
-      !stagedByRequirement.has(requirement.id),
-  );
-  if (missing.length > 0) {
-    const names = missing.map((requirement) => requirementLabel(requirement));
+  // Check the same score shown on the candidate's profile before submission.
+  const { canApply, percentage } = await getProfileReadiness(user);
+  if (!canApply) {
     return {
-      message: `Please upload all required documents before submitting: ${names.join(
-        ", ",
-      )}.`,
+      message:
+        `Your profile is ${percentage}% complete. It must be above ${APPLICATION_PROFILE_THRESHOLD}% to apply.`,
     };
   }
 
-  const evaluation = evaluateResume(resumeSummary);
-  const requirementSnapshot = buildRequirementSnapshot(requirements);
+  // Validate that the signed application letter has been staged before
+  // creating the application, so a partially uploaded submission can never
+  // be created.
+  const stagedLetter = await prisma.stagedDocument.findUnique({
+    where: {
+      candidateId_jobId_documentKey: {
+        candidateId: user.id,
+        jobId,
+        documentKey: APPLICATION_LETTER_KEY,
+      },
+    },
+    select: {
+      storageKey: true,
+      cloudUrl: true,
+      originalFileName: true,
+      mimeType: true,
+      fileSize: true,
+    },
+  });
+  if (!stagedLetter) {
+    return {
+      message:
+        "Please upload your signed application letter before submitting.",
+    };
+  }
+
+  const requirementSnapshot = buildRequirementSnapshot([
+    applicationLetterRequirement(),
+  ]);
 
   try {
     const created = await prisma.$transaction(async (tx) => {
@@ -120,19 +126,22 @@ export async function applyToJobAction(
           resumeSummary,
           status: "SUBMITTED",
           requirementSnapshot,
-          photoUrl,
-          photoPublicId,
         },
       });
 
-      await tx.applicationEvaluation.create({
-        data: {
-          applicationId: application.id,
-          score: evaluation.score,
-          method: evaluation.method,
-          notes: evaluation.notes,
-        },
-      });
+      // The deterministic summary score only makes sense when a summary
+      // was provided.
+      if (resumeSummary.length > 0) {
+        const evaluation = evaluateResume(resumeSummary);
+        await tx.applicationEvaluation.create({
+          data: {
+            applicationId: application.id,
+            score: evaluation.score,
+            method: evaluation.method,
+            notes: evaluation.notes,
+          },
+        });
+      }
 
       await tx.applicationStatusHistory.create({
         data: {
@@ -144,23 +153,22 @@ export async function applyToJobAction(
         },
       });
 
-      if (staged.length > 0) {
-        await tx.applicationDocument.createMany({
-          data: staged.map((document) => ({
-            applicationId: application.id,
-            jobDocumentRequirementId: document.jobDocumentRequirementId,
-            requirementKey: document.jobDocumentRequirementId,
-            storageKey: document.storageKey,
-            cloudUrl: document.cloudUrl,
-            originalFileName: document.originalFileName,
-            mimeType: document.mimeType,
-            fileSize: document.fileSize,
-          })),
-        });
-        await tx.stagedDocument.deleteMany({
-          where: { candidateId: user.id, jobId },
-        });
-      }
+      await tx.applicationDocument.create({
+        data: {
+          applicationId: application.id,
+          documentKey: APPLICATION_LETTER_KEY,
+          requirementKey: APPLICATION_LETTER_KEY,
+          storageKey: stagedLetter.storageKey,
+          cloudUrl: stagedLetter.cloudUrl,
+          originalFileName: stagedLetter.originalFileName,
+          mimeType: stagedLetter.mimeType,
+          fileSize: stagedLetter.fileSize,
+        },
+      });
+
+      await tx.stagedDocument.deleteMany({
+        where: { candidateId: user.id, jobId },
+      });
 
       return {
         applicationId: application.id,
@@ -189,7 +197,9 @@ export async function applyToJobAction(
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/profile");
   revalidatePath(`/jobs/${jobId}`);
 
+  await flashFeedback("application-submitted");
   redirect("/dashboard");
 }

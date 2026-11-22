@@ -13,7 +13,7 @@ export async function SiteHeader() {
   return (
     <header className="sticky top-0 z-10 border-b border-indigo-100 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-zinc-800/70 dark:bg-zinc-950/80 dark:supports-[backdrop-filter]:bg-zinc-950/60">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-3">
-        <div className="flex items-center gap-6">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-2">
           <Link href="/" className="flex items-center gap-2.5">
             <Image
               src="/LOGO.png"
@@ -27,7 +27,7 @@ export async function SiteHeader() {
               ZZRH Recruitment Portal
             </span>
           </Link>
-          <nav className="flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-300">
+          <nav aria-label="Main navigation" className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-zinc-600 dark:text-zinc-300">
             <Link href="/jobs" className="hover:text-zinc-900 dark:hover:text-white">
               Jobs
             </Link>
@@ -40,20 +40,20 @@ export async function SiteHeader() {
               </Link>
             )}
             {user && user.role === "CANDIDATE" && (
-              <Link
-                href="/dashboard"
-                className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
-              >
-                My applications
-              </Link>
-            )}
-            {user && user.role === "ADMIN" && (
-              <Link
-                href="/admin"
-                className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
-              >
-                Admin
-              </Link>
+              <>
+                <Link
+                  href="/profile"
+                  className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
+                >
+                  My profile
+                </Link>
+                <Link
+                  href="/profile?section=applications"
+                  className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
+                >
+                  My applications
+                </Link>
+              </>
             )}
           </nav>
         </div>

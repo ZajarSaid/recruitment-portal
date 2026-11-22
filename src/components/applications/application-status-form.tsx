@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { confirmForm, useFeedbackAction } from "@/components/action-feedback";
 
 import { SubmitButton } from "@/components/submit-button";
 import { Alert, Field, Select, TextArea } from "@/components/ui";
@@ -26,7 +26,10 @@ export function ApplicationStatusForm({
   applicationId: string;
   current: string;
 }) {
-  const [state, action] = useActionState(updateApplicationStatusAction, undefined);
+  const [state, action] = useFeedbackAction(
+    updateApplicationStatusAction,
+    undefined,
+  );
   const options = ALLOWED_TRANSITIONS[current] ?? [];
 
   if (options.length === 0) {
@@ -38,7 +41,18 @@ export function ApplicationStatusForm({
   }
 
   return (
-    <form action={action} className="space-y-3" noValidate>
+    <form
+      action={action}
+      onSubmit={(event) =>
+        confirmForm(
+          event,
+          "Apply the selected status to this application?",
+          "Update status",
+        )
+      }
+      className="space-y-3"
+      noValidate
+    >
       {state?.message && (
         <Alert tone={state.ok ? "success" : "error"}>{state.message}</Alert>
       )}
@@ -76,9 +90,7 @@ export function ApplicationStatusForm({
         </div>
       </div>
 
-      <SubmitButton pendingLabel="Updating…">
-        Update application
-      </SubmitButton>
+      <SubmitButton pendingLabel="Updating…">Update application</SubmitButton>
     </form>
   );
 }

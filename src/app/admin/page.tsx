@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 
+import { AdminSignInForm } from "@/components/auth/admin-sign-in-form";
 import { Card, StatCard } from "@/components/ui";
-import { requireRole } from "@/lib/dal";
+import { ADMIN_CHALLENGE_COOKIE } from "@/lib/admin-challenge";
+import { getCurrentUser } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 
 export const metadata: Metadata = {
@@ -11,7 +14,18 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminPage() {
-  await requireRole("ADMIN");
+  const user = await getCurrentUser();
+  if (user?.role !== "ADMIN") {
+    const codePending = Boolean((await cookies()).get(ADMIN_CHALLENGE_COOKIE)?.value);
+    return (
+      <main className="mx-auto max-w-md py-8">
+        <Card>
+          <h1 className="mb-5 text-2xl font-semibold tracking-tight">Administrator sign-in</h1>
+          <AdminSignInForm codePending={codePending} />
+        </Card>
+      </main>
+    );
+  }
 
   const [usersByRole, jobsByStatus, applicationsByStatus] = await Promise.all([
     prisma.user.groupBy({ by: ["role"], _count: { _all: true } }),

@@ -23,11 +23,13 @@ const TABLES = [
   "StagedDocument",
   "ApplicationStatusHistory",
   "ApplicationEvaluation",
-  "JobDocumentRequirement",
+  "CandidateDocument",
+  "CandidateProfile",
   "Application",
   "Job",
-  "DocumentType",
   "PasswordResetToken",
+  "AdminSignInChallenge",
+  "UserSession",
   "User",
 ];
 

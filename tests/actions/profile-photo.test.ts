@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { uploadProfilePhotoAction } from "@/lib/actions/profile-photo";
+import { removeProfilePhotoAction, uploadProfilePhotoAction } from "@/lib/actions/profile-photo";
 import { getCurrentUser } from "@/lib/dal";
+import { prisma } from "@/lib/db";
 import { createTestUser, toCurrentUser } from "../harness/fixtures";
 
 /**
@@ -62,6 +63,15 @@ describe("uploadProfilePhotoAction", () => {
       expect(result.mimeType).toBe("image/jpeg");
     }
     expect(storeUploadedFileMock).toHaveBeenCalledTimes(1);
+    const where = { userId: candidate.id };
+    expect(await prisma.candidateProfile.findUnique({ where })).toMatchObject({
+      photoPublicId: "cloud:profile-photos/x/me",
+    });
+    expect(await removeProfilePhotoAction()).toEqual({ ok: true });
+    expect(await prisma.candidateProfile.findUnique({ where })).toMatchObject({
+      photoPublicId: null,
+      photoUrl: null,
+    });
   });
 
   it("rejects a non-image file without storing anything", async () => {

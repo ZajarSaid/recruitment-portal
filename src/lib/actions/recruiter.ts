@@ -92,6 +92,7 @@ export async function updateApplicationStatusAction(
 
   revalidatePath(`/recruiter/jobs/${app.jobId}`);
   revalidatePath(`/recruiter/applications/${app.id}`);
+  revalidatePath("/profile");
 
   // When an application is shortlisted the candidate must receive the
   // "prepare for an interview" notification. Scheduled through `after` so

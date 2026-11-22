@@ -94,6 +94,8 @@ export const resetPasswordSchema = z
 
 export const jobStatusSchema = z.enum(["DRAFT", "PUBLISHED", "CLOSED"]);
 
+export const jobCategorySchema = z.enum(["GENERAL", "MEDICINE", "IT", "BUSINESS"]);
+
 function formDate(label: string) {
   return z.preprocess(
     (value) => {
@@ -139,6 +141,7 @@ export const jobSchema = z
       .trim()
       .min(10, "Qualifications must be at least 10 characters long.")
       .max(10_000, "Qualifications must be at most 10000 characters long."),
+    category: jobCategorySchema,
     opensAt: formDate("Opening date"),
     closesAt: formDate("Closing date"),
   })
@@ -150,36 +153,87 @@ export const jobSchema = z
 export type JobInput = z.infer<typeof jobSchema>;
 
 /* -------------------------------------------------------------------------- */
-/* Vacancy document requirement schemas                                       */
+/* Candidate profile schemas                                                  */
 /* -------------------------------------------------------------------------- */
 
-export const documentRequirementStatusSchema = z.enum(["REQUIRED", "OPTIONAL"]);
+export const profileCategorySchema = z.enum(["GENERAL", "MEDICINE", "IT", "BUSINESS"]);
 
-export const documentRequirementInputSchema = z.object({
-  id: z.string().trim().min(1).optional(),
-  documentTypeId: z.string().trim().min(1).nullable().optional(),
-  customName: z
+export const profileEducationLevelSchema = z.enum([
+  "NONE",
+  "PRIMARY",
+  "SECONDARY",
+  "CERTIFICATE",
+  "DIPLOMA",
+  "BACHELOR",
+  "MASTER",
+  "DOCTORATE",
+]);
+
+export const profileComputerLiteracySchema = z.enum([
+  "BASIC",
+  "INTERMEDIATE",
+  "ADVANCED",
+]);
+
+function birthYearSchema(label: string) {
+  return z.preprocess(
+    (value) => {
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        return trimmed === "" ? null : Number(trimmed);
+      }
+      return value;
+    },
+    z
+      .number({ error: `${label} is required.` })
+      .int(`${label} must be a whole year.`)
+      .gte(1930, `${label} looks too early.`)
+      .lte(new Date().getFullYear() - 14, `${label} looks too recent.`)
+      .nullable(),
+  );
+}
+
+function birthMonthSchema(label: string) {
+  return z.preprocess(
+    (value) => {
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        return trimmed === "" ? null : Number(trimmed);
+      }
+      return value;
+    },
+    z
+      .number({ error: `${label} is required.` })
+      .int(`${label} must be a whole month.`)
+      .gte(1, `${label} is invalid.`)
+      .lte(12, `${label} is invalid.`)
+      .nullable(),
+  );
+}
+
+export const profileSchema = z.object({
+  educationLevel: z.preprocess((value) => value === "" ? null : value, profileEducationLevelSchema.nullable()),
+  experienceSummary: z
     .string()
     .trim()
-    .max(200, "Custom document name must be at most 200 characters long.")
-    .nullable()
+    .max(2000, "Experience must be at most 2,000 characters long.")
     .optional(),
-  description: z
+  birthYear: birthYearSchema("Birth year"),
+  birthMonth: birthMonthSchema("Birth month"),
+  physicalAddress: z.preprocess((value) => typeof value === "string" && !value.trim() ? null : value, z
     .string()
     .trim()
-    .max(2000, "Description must be at most 2000 characters long.")
-    .nullable()
-    .optional(),
-  requirementStatus: documentRequirementStatusSchema,
+    .min(5, "Physical address must be at least 5 characters long.")
+    .max(500, "Physical address must be at most 500 characters long.").nullable()),
+  computerLiteracy: z.preprocess((value) => value === "" ? null : value, profileComputerLiteracySchema.nullable()),
+  languages: z.preprocess((value) => typeof value === "string" && !value.trim() ? null : value, z
+    .string()
+    .trim()
+    .min(2, "List at least one language you speak.")
+    .max(500, "Languages must be at most 500 characters long.").nullable()),
+  category: profileCategorySchema,
+  photoUrl: z.string().trim().max(512).optional(),
+  photoPublicId: z.string().trim().max(255).optional(),
 });
 
-export const documentRequirementsSchema = z
-  .array(documentRequirementInputSchema)
-  .max(60, "A vacancy may have at most 60 document requirements.");
-
-export type DocumentRequirementInput = z.infer<
-  typeof documentRequirementInputSchema
->;
-
-/** Maximum number of document requirements a single vacancy may configure. */
-export const MAX_DOCUMENT_REQUIREMENTS = 60;
+export type ProfileInput = z.infer<typeof profileSchema>;

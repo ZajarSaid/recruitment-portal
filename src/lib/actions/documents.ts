@@ -7,20 +7,23 @@ import { getCurrentUser } from "@/lib/dal";
 import { isAcceptingApplications } from "@/lib/jobs";
 import { deleteStoredUpload, storeUploadedFile } from "@/lib/cloud-storage";
 import { validateUpload } from "@/lib/uploads";
+import { APPLICATION_LETTER_KEY } from "@/lib/profile-documents";
 
 /**
  * Candidate-driven staged document uploads.
  *
- * Each file is uploaded on its own, before the application is submitted, so a
- * slow or failed upload never creates a half-complete application. Staged
- * rows are tied to a (candidate, vacancy, requirement) triple and reused when
- * the application is finally submitted. Files are stored through the storage
- * abstraction (Cloudinary when configured, otherwise local private storage).
+ * With profile-based applications, the only document staged before an
+ * application is submitted is the signed application letter. Each file is
+ * uploaded on its own, before the application is created, so a slow or failed
+ * upload never creates a half-complete application. The staged row is tied to
+ * (candidate, vacancy, documentKey) and reused when the application is
+ * finally submitted. Files are stored through the storage abstraction
+ * (Cloudinary when configured, otherwise local private storage).
  */
 
 export type StagedDocumentInfo = {
   id: string;
-  requirementId: string;
+  documentKey: string;
   originalFileName: string;
   mimeType: string;
   fileSize: number;
@@ -31,7 +34,7 @@ export type DocumentActionState =
   | {
       ok?: boolean;
       message?: string;
-      requirementId?: string;
+      documentKey?: string;
       document?: StagedDocumentInfo | null;
     }
   | undefined;
@@ -54,14 +57,17 @@ export async function uploadStagedDocumentAction(
   }
 
   const jobId = stringField(formData, "jobId");
-  const requirementId = stringField(formData, "requirementId");
+  const documentKey = stringField(formData, "documentKey");
   const file = formData.get("file");
 
-  if (!jobId || !requirementId) {
-    return { message: "Missing job or document requirement." };
+  if (!jobId || !documentKey) {
+    return { message: "Missing job or document." };
+  }
+  if (documentKey !== APPLICATION_LETTER_KEY) {
+    return { documentKey, message: "Unknown application document." };
   }
   if (!(file instanceof File)) {
-    return { requirementId, message: "Please choose a file to upload." };
+    return { documentKey, message: "Please choose a file to upload." };
   }
 
   const job = await prisma.job.findUnique({
@@ -69,34 +75,26 @@ export async function uploadStagedDocumentAction(
     select: { id: true, status: true, opensAt: true, closesAt: true },
   });
   if (!job) {
-    return { requirementId, message: "Job vacancy not found." };
+    return { documentKey, message: "Job vacancy not found." };
   }
   if (!isAcceptingApplications(job)) {
     return {
-      requirementId,
+      documentKey,
       message: "This vacancy is no longer accepting documents.",
     };
   }
 
-  const requirement = await prisma.jobDocumentRequirement.findFirst({
-    where: { id: requirementId, jobId },
-    select: { id: true },
-  });
-  if (!requirement) {
-    return { requirementId, message: "Document requirement not found." };
-  }
-
   const validation = await validateUpload(file);
   if (!validation.ok) {
-    return { requirementId, message: validation.message };
+    return { documentKey, message: validation.message };
   }
 
   const previous = await prisma.stagedDocument.findUnique({
     where: {
-      candidateId_jobId_jobDocumentRequirementId: {
+      candidateId_jobId_documentKey: {
         candidateId: user.id,
         jobId,
-        jobDocumentRequirementId: requirementId,
+        documentKey,
       },
     },
     select: { storageKey: true },
@@ -110,7 +108,7 @@ export async function uploadStagedDocumentAction(
     });
   } catch {
     return {
-      requirementId,
+      documentKey,
       message: "Failed to store the file. Please try again.",
     };
   }
@@ -119,16 +117,16 @@ export async function uploadStagedDocumentAction(
   try {
     staged = await prisma.stagedDocument.upsert({
       where: {
-        candidateId_jobId_jobDocumentRequirementId: {
+        candidateId_jobId_documentKey: {
           candidateId: user.id,
           jobId,
-          jobDocumentRequirementId: requirementId,
+          documentKey,
         },
       },
       create: {
         candidateId: user.id,
         jobId,
-        jobDocumentRequirementId: requirementId,
+        documentKey,
         storageKey: stored.reference,
         cloudUrl: stored.url,
         originalFileName: validation.originalFileName,
@@ -146,7 +144,7 @@ export async function uploadStagedDocumentAction(
   } catch {
     await deleteStoredUpload(stored.reference);
     return {
-      requirementId,
+      documentKey,
       message: "Failed to save the document. Please try again.",
     };
   }
@@ -159,11 +157,11 @@ export async function uploadStagedDocumentAction(
 
   return {
     ok: true,
-    requirementId,
+    documentKey,
     message: "Document uploaded.",
     document: {
       id: staged.id,
-      requirementId,
+      documentKey,
       originalFileName: staged.originalFileName,
       mimeType: staged.mimeType,
       fileSize: staged.fileSize,
@@ -185,23 +183,23 @@ export async function removeStagedDocumentAction(
   }
 
   const jobId = stringField(formData, "jobId");
-  const requirementId = stringField(formData, "requirementId");
-  if (!jobId || !requirementId) {
-    return { message: "Missing job or document requirement." };
+  const documentKey = stringField(formData, "documentKey");
+  if (!jobId || !documentKey) {
+    return { message: "Missing job or document." };
   }
 
   const staged = await prisma.stagedDocument.findUnique({
     where: {
-      candidateId_jobId_jobDocumentRequirementId: {
+      candidateId_jobId_documentKey: {
         candidateId: user.id,
         jobId,
-        jobDocumentRequirementId: requirementId,
+        documentKey,
       },
     },
     select: { id: true, storageKey: true },
   });
   if (!staged) {
-    return { ok: true, requirementId, document: null, message: "Removed." };
+    return { ok: true, documentKey, document: null, message: "Removed." };
   }
 
   await prisma.stagedDocument.delete({ where: { id: staged.id } });
@@ -209,5 +207,5 @@ export async function removeStagedDocumentAction(
 
   revalidatePath(`/jobs/${jobId}/apply`);
 
-  return { ok: true, requirementId, document: null, message: "Removed." };
+  return { ok: true, documentKey, document: null, message: "Removed." };
 }

@@ -4,6 +4,10 @@ import Link from "next/link";
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { requireRole } from "@/lib/dal";
 import { formatDate, humanizeStatus } from "@/lib/format";
+import {
+  JOB_CATEGORY_LABELS,
+  type JobCategoryValue,
+} from "@/lib/profile-documents";
 import { listManagedJobs } from "@/lib/jobs";
 
 export const metadata: Metadata = {
@@ -78,15 +82,9 @@ export default async function ManageJobsPage() {
                     {humanizeStatus(job.status)}
                   </Badge>
                   <Badge
-                    tone={
-                      job._count.documentRequirements > 0 ? "blue" : "neutral"
-                    }
+                    tone={job._count.applications > 0 ? "blue" : "neutral"}
                   >
-                    {job._count.documentRequirements > 0
-                      ? `${job._count.documentRequirements} document${
-                          job._count.documentRequirements === 1 ? "" : "s"
-                        } required`
-                      : "No documents"}
+                    {JOB_CATEGORY_LABELS[job.category as JobCategoryValue]}
                   </Badge>
                   {job._count.applications > 0 && (
                     <Link

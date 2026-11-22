@@ -70,4 +70,19 @@ describe("LoginForm", () => {
       ).toBeDefined();
     });
   });
+
+  it("keeps the email after a rejected sign-in and clears the password", async () => {
+    loginActionMock.mockResolvedValue({ message: "Invalid email or password." });
+    render(<LoginForm />);
+
+    const email = screen.getByLabelText<HTMLInputElement>("Email");
+    const password = screen.getByLabelText<HTMLInputElement>("Password");
+    fireEvent.change(email, { target: { value: "candidate@example.com" } });
+    fireEvent.change(password, { target: { value: "wrong-password" } });
+    fireEvent.submit(email.form!);
+
+    await screen.findByRole("alert");
+    expect(email.value).toBe("candidate@example.com");
+    expect(password.value).toBe("");
+  });
 });

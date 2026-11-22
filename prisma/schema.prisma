@@ -29,9 +29,28 @@ enum ApplicationStatus {
   REJECTED
 }
 
-enum DocumentRequirementStatus {
-  REQUIRED
-  OPTIONAL
+enum JobCategory {
+  GENERAL
+  MEDICINE
+  IT
+  BUSINESS
+}
+
+enum EducationLevel {
+  NONE
+  PRIMARY
+  SECONDARY
+  CERTIFICATE
+  DIPLOMA
+  BACHELOR
+  MASTER
+  DOCTORATE
+}
+
+enum ComputerLiteracyLevel {
+  BASIC
+  INTERMEDIATE
+  ADVANCED
 }
 
 enum DocumentReviewStatus {
@@ -58,31 +77,110 @@ model User {
   reviewedDocuments   ApplicationDocument[]      @relation("DocumentReviewer")
   stagedDocuments     StagedDocument[]
   passwordResetTokens PasswordResetToken[]
+  adminSignInChallenge AdminSignInChallenge?
+  sessions            UserSession[]
+  profile             CandidateProfile?
 
   @@index([role])
   @@index([isActive])
 }
 
+// The candidate's once-only master record: personal details, education,
+// address, computer literacy, languages and the category-specific documents.
+// Completed once after registering, it is reused for every future vacancy
+// application, so applying only requires the signed application letter.
+model CandidateProfile {
+  id               String                 @id @default(cuid())
+  userId           String                 @unique
+  educationLevel   EducationLevel?
+  // Birth date as independent year and month values (the day is not asked).
+  birthYear        Int?
+  birthMonth       Int?
+  physicalAddress  String?                @db.VarChar(500)
+  computerLiteracy ComputerLiteracyLevel?
+  // Comma-separated list of languages the candidate speaks.
+  languages        String?                @db.VarChar(500)
+  experienceSummary String?               @db.Text
+  // The professional field the candidate categorises themselves in. Drives
+  // which category-specific documents are requested on the profile.
+  category         JobCategory            @default(GENERAL)
+  // Passport-style photograph, stored in cloud storage (public URL).
+  photoUrl         String?                @db.VarChar(512)
+  photoPublicId    String?                @db.VarChar(255)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents CandidateDocument[]
+
+  @@index([category])
+}
+
+model UserSession {
+  tokenHash  String   @id @db.Char(64)
+  userId     String
+  lastSeenAt DateTime
+  expiresAt  DateTime
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model AdminSignInChallenge {
+  id             String   @id @db.VarChar(64)
+  userId         String   @unique
+  codeHash       String   @db.Char(64)
+  expiresAt      DateTime
+  attempts       Int      @default(0)
+  accountVersion DateTime
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// One uploaded file attached to the candidate's profile, keyed to a
+// well-known catalog entry (see `src/lib/profile-documents.ts`). Re-uploading
+// the same document key replaces the stored row.
+model CandidateDocument {
+  id               String   @id @default(cuid())
+  profileId        String
+  documentKey      String   @db.VarChar(100)
+  storageKey       String   @unique @db.VarChar(255)
+  // Public cloud delivery URL when the file lives in cloud storage; null for
+  // files retained in local private storage.
+  cloudUrl         String?  @db.VarChar(512)
+  originalFileName String   @db.VarChar(255)
+  mimeType         String
+  fileSize         Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  profile CandidateProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, documentKey])
+  @@index([profileId])
+}
+
 model Job {
-  id             String    @id @default(cuid())
+  id             String      @id @default(cuid())
   title          String
   department     String
   location       String
-  description    String    @db.Text
-  qualifications String    @db.Text
+  description    String      @db.Text
+  qualifications String      @db.Text
+  // Professional field of the vacancy. Used to surface candidates whose
+  // profile category matches, and shown to candidates before they apply.
+  category       JobCategory @default(GENERAL)
   opensAt        DateTime
   closesAt       DateTime
-  status         JobStatus @default(DRAFT)
+  status         JobStatus   @default(DRAFT)
   createdById    String
   recruiterId    String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
-  createdBy           User                      @relation("JobCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  recruiter           User?                     @relation("JobRecruiter", fields: [recruiterId], references: [id], onDelete: SetNull)
-  applications        Application[]
-  documentRequirements JobDocumentRequirement[]
-  stagedDocuments     StagedDocument[]
+  createdBy      User   @relation("JobCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  recruiter      User?  @relation("JobRecruiter", fields: [recruiterId], references: [id], onDelete: SetNull)
+  applications   Application[]
+  stagedDocuments StagedDocument[]
 
   @@index([status, closesAt])
   @@index([createdById])
@@ -99,10 +197,9 @@ model Application {
   submittedAt   DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
-  // Requirements exactly as they were configured when this application was
-  // submitted. Editing the vacancy later never rewrites this snapshot, so a
-  // recruiter always reviews the candidate against the rules that applied on
-  // the day they submitted. Null means the application predates snapshots.
+  // Legacy field: requirements as configured on the vacancy at submission
+  // time, kept only so historical applications keep rendering correctly.
+  // Modern applications always carry a single "APPLICATION_LETTER" entry.
   requirementSnapshot Json?
 
   // Optional profile photograph supplied by the candidate during the
@@ -142,29 +239,31 @@ model ApplicationEvaluation {
 // A file uploaded by a candidate before the application is finalized. Keeping
 // staged uploads in their own table guarantees that an application is only
 // created once every mandatory document is present, so a partially uploaded
-// application can never be mistaken for a completed one.
+// application can never be mistaken for a completed one. With profile-based
+// applications, the only staged document is the signed application letter.
 model StagedDocument {
-  id                       String   @id @default(cuid())
-  candidateId              String
-  jobId                    String
-  jobDocumentRequirementId String
-  storageKey               String   @unique @db.VarChar(255)
+  id               String   @id @default(cuid())
+  candidateId      String
+  jobId            String
+  // Well-known document key, e.g. "APPLICATION_LETTER" (see
+  // `src/lib/profile-documents.ts`).
+  documentKey      String   @db.VarChar(100)
+  storageKey       String   @unique @db.VarChar(255)
   // When the file lives in cloud storage, this holds its public delivery URL.
   // Null for files kept in local private storage (see `storageKey`).
-  cloudUrl                 String?  @db.VarChar(512)
-  originalFileName         String   @db.VarChar(255)
-  mimeType                 String
-  fileSize                 Int
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  cloudUrl         String?  @db.VarChar(512)
+  originalFileName String   @db.VarChar(255)
+  mimeType         String
+  fileSize         Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  candidate   User                   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  job         Job                    @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  requirement JobDocumentRequirement @relation(fields: [jobDocumentRequirementId], references: [id], onDelete: Cascade)
+  candidate User @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job       Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  // One staged file per requirement per candidate per vacancy (replacement
+  // One staged file per document key per candidate per vacancy (replacement
   // updates the existing row).
-  @@unique([candidateId, jobId, jobDocumentRequirementId])
+  @@unique([candidateId, jobId, documentKey])
   @@index([candidateId, jobId])
 }
 
@@ -197,79 +296,39 @@ model PasswordResetToken {
   @@index([userId])
 }
 
-// A reusable catalog of document types (CV, application letter, academic
-// certificate, professional licence, ...). Recruiters may also define custom,
-// vacancy-specific requirements that do not reference a catalog entry.
-model DocumentType {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?  @db.Text
-  category    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  requirements JobDocumentRequirement[]
-
-  @@index([category])
-}
-
-// Configures one document an applicant may need for a specific vacancy.
-// `documentTypeId` is null when the requirement is a custom, ad-hoc item, in
-// which case `customName` holds the display name. "Not applicable" items are
-// simply omitted rather than stored.
-model JobDocumentRequirement {
-  id                String                    @id @default(cuid())
-  jobId             String
-  documentTypeId    String?
-  customName        String?
-  description       String?                   @db.Text
-  requirementStatus DocumentRequirementStatus @default(REQUIRED)
-  displayOrder      Int                       @default(0)
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
-
-  job          Job                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  documentType DocumentType?         @relation(fields: [documentTypeId], references: [id], onDelete: SetNull)
-  documents    ApplicationDocument[]
-  stagedDocuments StagedDocument[]
-
-  @@index([jobId, displayOrder])
-  @@index([documentTypeId])
-}
-
-// Metadata for a file uploaded against an application to satisfy a
-// requirement. The binary lives in private storage; only its reference is
-// persisted here. Removing a requirement detaches (rather than deletes) any
-// documents already linked to it, preserving candidate submissions.
+// Metadata for a file uploaded against an application. Since profile-based
+// applications, the only document collected at application time is the signed
+// application letter (`documentKey = "APPLICATION_LETTER"`). The binary lives
+// in private storage; only its reference is persisted here. `documentKey` is
+// null for legacy documents uploaded against the old per-vacancy requirements.
 model ApplicationDocument {
-  id                         String               @id @default(cuid())
-  applicationId              String
-  jobDocumentRequirementId   String?
-  // Snapshot copy of the requirement id this file was uploaded against. The
-  // live relation above is nullable and SetNull on delete; this plain string is
-  // immutable, so the file keeps its meaning even if the requirement row is
-  // removed or renumbered after submission.
-  requirementKey             String?
-  storageKey                 String               @unique @db.VarChar(255)
+  id               String               @id @default(cuid())
+  applicationId    String
+  // Well-known document key for modern uploads; null for legacy rows.
+  documentKey      String?              @db.VarChar(100)
+  // Legacy snapshot copy of the per-vacancy requirement id this file was
+  // uploaded against. Kept so historical files keep their meaning; modern
+  // uploads mirror `documentKey` here.
+  requirementKey   String?              @db.VarChar(100)
+  storageKey       String               @unique @db.VarChar(255)
   // Public cloud delivery URL when the file lives in cloud storage; null for
   // files retained in local private storage.
-  cloudUrl                   String?              @db.VarChar(512)
-  originalFileName           String               @db.VarChar(255)
-  mimeType                   String
-  fileSize                   Int
-  reviewStatus               DocumentReviewStatus @default(PENDING)
-  reviewComment              String?              @db.Text
-  reviewedById               String?
-  reviewedAt                 DateTime?
-  createdAt                  DateTime             @default(now())
-  updatedAt                  DateTime             @updatedAt
+  cloudUrl         String?              @db.VarChar(512)
+  originalFileName String               @db.VarChar(255)
+  mimeType         String
+  fileSize         Int
+  reviewStatus     DocumentReviewStatus @default(PENDING)
+  reviewComment    String?              @db.Text
+  reviewedById     String?
+  reviewedAt       DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
-  application    Application             @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  requirement    JobDocumentRequirement? @relation(fields: [jobDocumentRequirementId], references: [id], onDelete: SetNull)
-  reviewedBy     User?                   @relation("DocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  reviewedBy  User?       @relation("DocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@index([applicationId])
-  @@index([jobDocumentRequirementId])
+  @@index([documentKey])
   @@index([reviewedById])
   @@index([reviewStatus])
 }

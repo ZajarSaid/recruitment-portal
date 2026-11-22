@@ -5,9 +5,9 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { canManageJob } from "@/lib/jobs";
-import { listJobRequirements } from "@/lib/job-documents";
 import { summarizeApplicationDocuments, resolveRequirementViews } from "@/lib/application-documents";
 import { formatDate, formatDateTime, humanizeStatus } from "@/lib/format";
+import { getCategoryDocumentList } from "@/lib/profile-documents";
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { ApplicationStatusForm } from "@/components/applications/application-status-form";
 import { ApplicationDocumentsReview } from "@/components/applications/application-documents-review";
@@ -32,7 +32,20 @@ export default async function RecruiterJobApplicationsPage({
     where: { jobId },
     orderBy: { submittedAt: "desc" },
     include: {
-      candidate: { select: { id: true, name: true, email: true } },
+      candidate: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          profile: {
+            select: {
+              photoUrl: true,
+              category: true,
+              documents: { select: { id: true, documentKey: true } },
+            },
+          },
+        },
+      },
       evaluation: {
         select: { score: true, method: true, notes: true, evaluatedAt: true },
       },
@@ -43,7 +56,7 @@ export default async function RecruiterJobApplicationsPage({
       documents: {
         select: {
           id: true,
-          jobDocumentRequirementId: true,
+          documentKey: true,
           requirementKey: true,
           originalFileName: true,
           mimeType: true,
@@ -55,8 +68,6 @@ export default async function RecruiterJobApplicationsPage({
       },
     },
   });
-
-  const requirements = await listJobRequirements(jobId);
 
   return (
     <div className="space-y-4">
@@ -83,27 +94,34 @@ export default async function RecruiterJobApplicationsPage({
       ) : (
         <div className="space-y-4">
           {applications.map((application) => {
+            const profile = application.candidate.profile;
+            const profileDocuments = profile
+              ? getCategoryDocumentList(profile.category).flatMap((spec) => {
+                  const document = profile.documents.find((file) => file.documentKey === spec.key);
+                  return document ? [{ id: document.id, label: spec.label }] : [];
+                })
+              : [];
             const summary = summarizeApplicationDocuments(
-              resolveRequirementViews(
-                application,
-                requirements,
-                application.documents,
-              ),
+              resolveRequirementViews(application),
               application.documents,
             );
             return (
               <Card key={application.id}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
-                    {application.photoUrl && (
-                      // Served from Cloudinary; not run through next/image.
+                    {application.photoUrl || application.candidate.profile?.photoUrl ? (
+                      // Served from cloud storage; not run through next/image.
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={application.photoUrl}
+                        src={
+                          application.photoUrl ??
+                          application.candidate.profile?.photoUrl ??
+                          undefined
+                        }
                         alt={`${application.candidate.name} profile photograph`}
                         className="h-12 w-12 rounded-full border border-zinc-200 object-cover dark:border-zinc-700"
                       />
-                    )}
+                    ) : null}
                     <div>
                       <p className="font-medium text-zinc-900 dark:text-zinc-50">
                         {application.candidate.name}
@@ -178,8 +196,31 @@ export default async function RecruiterJobApplicationsPage({
                   requiredCount={summary.requiredCount}
                   requiredSubmitted={summary.requiredSubmitted}
                   missingRequired={summary.missingRequired}
-                  photoUrl={application.photoUrl}
+                  photoUrl={
+                    application.photoUrl ??
+                    application.candidate.profile?.photoUrl
+                  }
                 />
+
+                {profileDocuments.length > 0 && (
+                  <details className="mt-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+                    <summary className="cursor-pointer text-sm font-semibold">Current profile credentials</summary>
+                    <ul className="mt-3 space-y-2">
+                      {profileDocuments.map(({ id, label }) => (
+                        <li key={id}>
+                          <a
+                            href={`/applications/${application.id}/documents/${id}?source=profile`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm font-medium text-indigo-700 underline dark:text-indigo-300"
+                          >
+                            {label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
 
                 <div className="mt-4">
                   <ApplicationStatusForm

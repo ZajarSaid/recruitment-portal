@@ -1,9 +1,11 @@
 import "server-only";
 
 import { cache } from "react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { prisma } from "./db";
+import { ADMIN_SIGN_IN_PATH, isAdminHost } from "./admin-access";
 import { getSession } from "./session";
 import type { AppRole } from "./roles";
 
@@ -40,6 +42,10 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   });
 
   if (!user || !user.isActive) return null;
+  if (user.role === "ADMIN" &&
+    (session.role !== "ADMIN" || !session.adminVerified || !isAdminHost((await headers()).get("host")))) {
+    return null;
+  }
   return user;
 });
 
@@ -55,7 +61,8 @@ export const requireUser = cache(async (): Promise<CurrentUser> => {
 /** Requires the user to have one of the given roles, otherwise redirects. */
 export const requireRole = cache(
   async (...roles: AppRole[]): Promise<CurrentUser> => {
-    const user = await requireUser();
+    const user = await getCurrentUser();
+    if (!user) redirect(roles.length === 1 && roles[0] === "ADMIN" ? ADMIN_SIGN_IN_PATH : "/login");
     if (!roles.includes(user.role)) {
       redirect("/dashboard?error=forbidden");
     }

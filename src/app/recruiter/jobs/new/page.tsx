@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 
 import { JobForm } from "@/components/jobs/job-form";
 import { requireRole } from "@/lib/dal";
-import { listDocumentTypes } from "@/lib/job-documents";
 
 export const metadata: Metadata = {
   title: "Create vacancy",
@@ -11,7 +10,6 @@ export const metadata: Metadata = {
 
 export default async function NewJobPage() {
   await requireRole("RECRUITER", "ADMIN");
-  const documentTypes = await listDocumentTypes();
 
   return (
     <div>
@@ -24,7 +22,7 @@ export default async function NewJobPage() {
       </p>
 
       <div className="mt-6 max-w-2xl">
-        <JobForm documentTypes={documentTypes} />
+        <JobForm />
       </div>
     </div>
   );

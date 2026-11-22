@@ -1,4 +1,5 @@
 import * as React from "react";
+import { humanizeStatus } from "@/lib/format";
 
 import {
   EmailButton,
@@ -19,8 +20,7 @@ export type ApplicationReceivedEmailProps = {
 
 /**
  * Sent to the candidate immediately after an application is submitted, to
- * acknowledge receipt and set expectations: the application is now under
- * review and the candidate will be contacted about the outcome later.
+ * acknowledge receipt and tell the candidate where to track their application.
  */
 export function ApplicationReceivedEmail({
   candidateName,
@@ -32,15 +32,14 @@ export function ApplicationReceivedEmail({
 }: ApplicationReceivedEmailProps) {
   return (
     <EmailShell
-      preview={`We received your application for ${jobTitle}. It is now under review.`}
+      preview={`We received your application for ${jobTitle}.`}
       heading="Application received"
     >
       <EmailParagraph>Hi {candidateName},</EmailParagraph>
 
       <EmailParagraph>
         Thank you for applying. We have received your application for the
-        vacancy below and it is currently <strong>under review</strong> by the
-        recruitment team.
+        vacancy below. You can follow its progress from your dashboard.
       </EmailParagraph>
 
       <EmailSummaryCard
@@ -49,13 +48,13 @@ export function ApplicationReceivedEmail({
           { label: "Department", value: department },
           { label: "Location", value: location },
           { label: "Submitted on", value: submittedAtLabel },
+          { label: "Status", value: humanizeStatus("SUBMITTED") },
         ]}
       />
 
       <EmailParagraph>
-        No further action is needed from you at this stage. You will be
-        notified by email as soon as there is an update on the status of your
-        application &mdash; for example if it has been shortlisted.
+        No further action is needed from you at this stage. If you are shortlisted,
+        we will let you know by email.
       </EmailParagraph>
 
       <EmailMuted>

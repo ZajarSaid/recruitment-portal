@@ -45,6 +45,10 @@ export default defineConfig({
     globalSetup: ["./tests/global-setup.ts"],
     // Integration tests share one MySQL database; run files serially.
     fileParallelism: false,
+    // The test database can be a remote shared MySQL host; queries are much
+    // slower than a local instance, so allow generous per-test timeouts.
+    testTimeout: 30_000,
+    hookTimeout: 120_000,
     env: {
       DATABASE_URL: deriveTestDatabaseUrl(),
       SESSION_SECRET:

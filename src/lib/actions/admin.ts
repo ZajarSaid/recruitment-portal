@@ -59,7 +59,17 @@ export async function updateUserRoleAction(
     return { message: "User not found." };
   }
 
-  await prisma.user.update({ where: { id: userId }, data: { role } });
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.user.updateMany({
+      where: { id: userId, role: { not: "CANDIDATE" } },
+      data: { role },
+    });
+    if (result.count && target.role !== role) {
+      await tx.userSession.deleteMany({ where: { userId } });
+    }
+    return result;
+  });
+  if (updated.count === 0) return { message: "Candidate roles cannot be changed." };
 
   revalidatePath("/admin");
   revalidatePath("/admin/users");
@@ -94,9 +104,12 @@ export async function setUserActiveAction(
   }
 
   const nextActive = isActive === "true";
-  await prisma.user.update({
-    where: { id: userId },
-    data: { isActive: nextActive },
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: { isActive: nextActive },
+    });
+    if (!nextActive) await tx.userSession.deleteMany({ where: { userId } });
   });
 
   revalidatePath("/admin");

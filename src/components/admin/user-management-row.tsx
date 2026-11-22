@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { confirmForm, useFeedbackAction } from "@/components/action-feedback";
 
 import { SubmitButton } from "@/components/submit-button";
 import { Alert, Select } from "@/components/ui";
@@ -21,8 +21,11 @@ export function UserManagementRow({
   };
   isSelf: boolean;
 }) {
-  const [roleState, roleAction] = useActionState(updateUserRoleAction, undefined);
-  const [activeState, activeAction] = useActionState(
+  const [roleState, roleAction] = useFeedbackAction(
+    updateUserRoleAction,
+    undefined,
+  );
+  const [activeState, activeAction] = useFeedbackAction(
     setUserActiveAction,
     undefined,
   );
@@ -57,33 +60,58 @@ export function UserManagementRow({
         </div>
 
         <div className="flex flex-wrap items-end gap-3">
-          <form action={roleAction} className="flex items-end gap-2">
-            <input type="hidden" name="userId" value={user.id} />
-            <label className="text-xs text-zinc-500 dark:text-zinc-400">
-              <span className="mb-1 block font-medium">Role</span>
-              <Select
-                name="role"
-                defaultValue={user.role}
-                disabled={isSelf}
-                aria-label={`Role for ${user.name}`}
-              >
-                {ROLES.map((role) => (
-                  <option key={role} value={role}>
-                    {ROLE_LABELS[role]}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <SubmitButton
-              pendingLabel="Saving…"
-              disabled={isSelf}
-              className="px-3 py-2"
+          {user.role !== "CANDIDATE" && (
+            <form
+              action={roleAction}
+              onSubmit={(event) =>
+                confirmForm(
+                  event,
+                  `Change the role for ${user.name}?`,
+                  "Change role",
+                )
+              }
+              className="flex items-end gap-2"
             >
-              Save
-            </SubmitButton>
-          </form>
+              <input type="hidden" name="userId" value={user.id} />
+              <label className="text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="mb-1 block font-medium">Role</span>
+                <Select
+                  name="role"
+                  defaultValue={user.role}
+                  disabled={isSelf}
+                  aria-label={`Role for ${user.name}`}
+                >
+                  {ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {ROLE_LABELS[role]}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              <SubmitButton
+                pendingLabel="Saving…"
+                disabled={isSelf}
+                className="px-3 py-2"
+              >
+                Save
+              </SubmitButton>
+            </form>
+          )}
 
-          <form action={activeAction} className="pb-0.5">
+          <form
+            action={activeAction}
+            onSubmit={
+              user.isActive
+                ? (event) =>
+                    confirmForm(
+                      event,
+                      `Deactivate ${user.name}’s account?`,
+                      "Deactivate",
+                    )
+                : undefined
+            }
+            className="pb-0.5"
+          >
             <input type="hidden" name="userId" value={user.id} />
             <input
               type="hidden"

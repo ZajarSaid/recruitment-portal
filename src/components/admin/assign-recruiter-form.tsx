@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFeedbackAction } from "@/components/action-feedback";
+
 
 import { SubmitButton } from "@/components/submit-button";
 import { Alert, Field, TextInput } from "@/components/ui";
@@ -13,7 +14,7 @@ export function AssignRecruiterForm({
   jobId: string;
   currentEmail: string | null;
 }) {
-  const [state, action] = useActionState(assignRecruiterAction, undefined);
+  const [state, action] = useFeedbackAction(assignRecruiterAction, undefined);
 
   return (
     <div className="space-y-2">

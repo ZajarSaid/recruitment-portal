@@ -98,7 +98,7 @@ export async function listManagedJobs(user: CurrentUser) {
     orderBy: { updatedAt: "desc" },
     include: {
       _count: {
-        select: { applications: true, documentRequirements: true },
+        select: { applications: true },
       },
       createdBy: { select: { id: true, name: true } },
       recruiter: { select: { id: true, name: true } },

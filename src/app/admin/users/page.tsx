@@ -25,6 +25,18 @@ export default async function AdminUsersPage() {
       createdAt: true,
     },
   });
+  const staff = users.filter((user) => user.role !== "CANDIDATE");
+  const candidates = users.filter((user) => user.role === "CANDIDATE");
+
+  function renderUser(user: (typeof users)[number]) {
+    return (
+      <UserManagementRow
+        key={user.id}
+        isSelf={user.id === current.id}
+        user={{ ...user, createdAtLabel: formatDate(user.createdAt) }}
+      />
+    );
+  }
 
   return (
     <div>
@@ -32,30 +44,24 @@ export default async function AdminUsersPage() {
         Users and roles
       </h1>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-        Change user roles or activate and deactivate accounts. Deactivated users
-        are blocked immediately on their next request.
+        Manage staff roles and account access.
       </p>
 
       <div className="mt-6 space-y-3">
-        {users.length === 0 ? (
-          <EmptyState title="No users found" />
+        {staff.length === 0 ? (
+          <EmptyState title="No staff accounts found" />
         ) : (
-          users.map((user) => (
-            <UserManagementRow
-              key={user.id}
-              isSelf={user.id === current.id}
-              user={{
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                isActive: user.isActive,
-                createdAtLabel: formatDate(user.createdAt),
-              }}
-            />
-          ))
+          staff.map(renderUser)
         )}
       </div>
+      {candidates.length > 0 && (
+        <details className="mt-6 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+          <summary className="cursor-pointer text-sm font-semibold">
+            Candidate account access
+          </summary>
+          <div className="mt-3 space-y-3">{candidates.map(renderUser)}</div>
+        </details>
+      )}
     </div>
   );
 }

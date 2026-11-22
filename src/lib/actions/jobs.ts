@@ -9,13 +9,9 @@ import {
   type ActionState,
 } from "@/lib/definitions";
 import { prisma } from "@/lib/db";
+import { flashFeedback } from "@/lib/flash-feedback";
 import { getCurrentUser, type CurrentUser } from "@/lib/dal";
 import { canManageJob } from "@/lib/jobs";
-import {
-  parseRequirementsField,
-  RequirementSyncError,
-  syncJobRequirements,
-} from "@/lib/job-documents";
 import { isJobManager } from "@/lib/navigation";
 
 type JobStatusValue = "DRAFT" | "PUBLISHED" | "CLOSED";
@@ -76,49 +72,34 @@ export async function createJobAction(
     return { errors: toFieldErrors(parsed.error) };
   }
 
-  const requirements = parseRequirementsField(
-    formData.get("documentRequirements"),
-  );
-  if (!requirements.ok) {
-    return { errors: requirements.errors };
-  }
-
   const data = parsed.data;
   const requestedStatus: JobStatusValue =
     formData.get("status") === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
 
   let jobId: string;
   try {
-    jobId = await prisma.$transaction(async (tx) => {
-      const job = await tx.job.create({
-        data: {
-          title: data.title,
-          department: data.department,
-          location: data.location,
-          description: data.description,
-          qualifications: data.qualifications,
-          opensAt: data.opensAt,
-          closesAt: data.closesAt,
-          status: requestedStatus,
-          createdById: auth.user.id,
-          recruiterId: auth.user.role === "RECRUITER" ? auth.user.id : null,
-        },
-      });
-
-      if (requirements.data.length > 0) {
-        await syncJobRequirements(tx, job.id, requirements.data);
-      }
-
-      return job.id;
+    const job = await prisma.job.create({
+      data: {
+        title: data.title,
+        department: data.department,
+        location: data.location,
+        description: data.description,
+        qualifications: data.qualifications,
+        category: data.category,
+        opensAt: data.opensAt,
+        closesAt: data.closesAt,
+        status: requestedStatus,
+        createdById: auth.user.id,
+        recruiterId: auth.user.role === "RECRUITER" ? auth.user.id : null,
+      },
     });
-  } catch (error: unknown) {
-    if (error instanceof RequirementSyncError) {
-      return { errors: { documentRequirements: [error.message] } };
-    }
-    throw error;
+    jobId = job.id;
+  } catch {
+    return { message: "Could not create the vacancy. Please try again." };
   }
 
   revalidateJobSurfaces(jobId);
+  await flashFeedback("vacancy-created");
   redirect(`/recruiter/jobs/${jobId}`);
 }
 
@@ -143,40 +124,28 @@ export async function updateJobAction(
     return { errors: toFieldErrors(parsed.error) };
   }
 
-  const requirements = parseRequirementsField(
-    formData.get("documentRequirements"),
-  );
-  if (!requirements.ok) {
-    return { errors: requirements.errors };
-  }
-
   const data = parsed.data;
 
   try {
-    await prisma.$transaction(async (tx) => {
-      await tx.job.update({
-        where: { id },
-        data: {
-          title: data.title,
-          department: data.department,
-          location: data.location,
-          description: data.description,
-          qualifications: data.qualifications,
-          opensAt: data.opensAt,
-          closesAt: data.closesAt,
-        },
-      });
-
-      await syncJobRequirements(tx, id, requirements.data);
+    await prisma.job.update({
+      where: { id },
+      data: {
+        title: data.title,
+        department: data.department,
+        location: data.location,
+        description: data.description,
+        qualifications: data.qualifications,
+        category: data.category,
+        opensAt: data.opensAt,
+        closesAt: data.closesAt,
+      },
     });
-  } catch (error: unknown) {
-    if (error instanceof RequirementSyncError) {
-      return { errors: { documentRequirements: [error.message] } };
-    }
-    throw error;
+  } catch {
+    return { message: "Could not update the vacancy. Please try again." };
   }
 
   revalidateJobSurfaces(id);
+  await flashFeedback("vacancy-updated");
   redirect(`/recruiter/jobs/${id}`);
 }
 

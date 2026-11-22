@@ -34,7 +34,7 @@ vi.mock("next/headers", () => ({
       },
     };
   },
-  headers: async () => new Headers(),
+  headers: async () => new Headers({ host: "localhost:3000" }),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -56,3 +56,26 @@ vi.mock("next/cache", () => ({
   revalidatePath: () => {},
   revalidateTag: () => {},
 }));
+
+/**
+ * Email dispatch is scheduled inside Next's request-scoped `after`, which
+ * cannot run outside a real request. Tests replace the schedulers with
+ * no-ops; the underlying send helpers are exercised separately.
+ */
+vi.mock("@/lib/email/application-emails", () => ({
+  scheduleApplicationSubmittedEmails: () => {},
+  scheduleApplicationShortlistedEmail: () => {},
+}));
+
+/**
+ * Storage abstraction: force the local fallback so integration tests never
+ * perform real Cloudinary network uploads. The module reads its credentials
+ * at import time, so they must be removed before any test module loads it.
+ */
+for (const name of [
+  "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME",
+  "NEXT_PUBLIC_CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET",
+]) {
+  delete process.env[name];
+}

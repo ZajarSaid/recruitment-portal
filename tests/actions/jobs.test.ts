@@ -9,9 +9,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import { resetRateLimits } from "@/lib/rate-limit";
 import {
-  createTestDocumentType,
   createTestJob,
-  createTestRequirement,
   createTestUser,
   formData,
   toCurrentUser,
@@ -43,6 +41,7 @@ function jobForm(overrides: Record<string, string> = {}): FormData {
       "Design, build and maintain the recruitment platform services and integrations.",
     qualifications:
       "Bachelor's degree in Computer Science and five years of engineering experience.",
+    category: "IT",
     opensAt: "2026-01-01",
     closesAt: "2026-03-01",
     ...overrides,
@@ -66,6 +65,7 @@ describe("job creation", () => {
     const job = await prisma.job.findUnique({ where: { id: jobId } });
     expect(job).not.toBeNull();
     expect(job?.status).toBe("DRAFT");
+    expect(job?.category).toBe("IT");
     expect(job?.createdById).toBe(recruiter.id);
     expect(job?.recruiterId).toBe(recruiter.id);
   });
@@ -272,200 +272,5 @@ describe("job record-level authorization", () => {
     expect(state?.ok).toBe(true);
     const updated = await prisma.job.findUnique({ where: { id: job.id } });
     expect(updated?.status).toBe("CLOSED");
-  });
-});
-
-describe("vacancy document requirements", () => {
-  it("publishes a vacancy with no document requirements (backward compatible)", async () => {
-    const recruiter = await createTestUser({ role: "RECRUITER" });
-    signIn(recruiter);
-
-    const target = await expectRedirect(
-      createJobAction(undefined, jobForm({ status: "PUBLISHED" })),
-    );
-    const jobId = target.split("/").pop() as string;
-
-    const job = await prisma.job.findUnique({ where: { id: jobId } });
-    expect(job?.status).toBe("PUBLISHED");
-    const requirements = await prisma.jobDocumentRequirement.count({
-      where: { jobId },
-    });
-    expect(requirements).toBe(0);
-  });
-
-  it("persists required and optional requirements in order on creation", async () => {
-    const recruiter = await createTestUser({ role: "RECRUITER" });
-    signIn(recruiter);
-    const cv = await createTestDocumentType({ name: `CV ${Date.now()}` });
-    const licence = await createTestDocumentType({
-      name: `Practising licence ${Date.now()}`,
-    });
-
-    const target = await expectRedirect(
-      createJobAction(
-        undefined,
-        jobForm({
-          documentRequirements: JSON.stringify([
-            {
-              documentTypeId: cv.id,
-              requirementStatus: "REQUIRED",
-            },
-            {
-              documentTypeId: licence.id,
-              description: "Must be current.",
-              requirementStatus: "OPTIONAL",
-            },
-            {
-              customName: "Referee letters",
-              requirementStatus: "REQUIRED",
-            },
-          ]),
-        }),
-      ),
-    );
-    const jobId = target.split("/").pop() as string;
-
-    const requirements = await prisma.jobDocumentRequirement.findMany({
-      where: { jobId },
-      orderBy: { displayOrder: "asc" },
-    });
-    expect(requirements).toHaveLength(3);
-    expect(requirements[0]).toMatchObject({
-      documentTypeId: cv.id,
-      requirementStatus: "REQUIRED",
-      displayOrder: 0,
-    });
-    expect(requirements[1]).toMatchObject({
-      documentTypeId: licence.id,
-      description: "Must be current.",
-      requirementStatus: "OPTIONAL",
-      displayOrder: 1,
-    });
-    expect(requirements[2]).toMatchObject({
-      documentTypeId: null,
-      customName: "Referee letters",
-      requirementStatus: "REQUIRED",
-      displayOrder: 2,
-    });
-  });
-
-  it("rejects a requirement that has neither a document type nor a custom name", async () => {
-    const recruiter = await createTestUser({ role: "RECRUITER" });
-    signIn(recruiter);
-
-    const before = await prisma.job.count();
-    const state = await createJobAction(
-      undefined,
-      jobForm({
-        documentRequirements: JSON.stringify([
-          { requirementStatus: "REQUIRED" },
-        ]),
-      }),
-    );
-
-    expect(state?.errors?.documentRequirements).toBeDefined();
-    expect(await prisma.job.count()).toBe(before);
-  });
-
-  it("rejects a requirement referencing an unknown document type", async () => {
-    const recruiter = await createTestUser({ role: "RECRUITER" });
-    signIn(recruiter);
-
-    const before = await prisma.job.count();
-    const state = await createJobAction(
-      undefined,
-      jobForm({
-        documentRequirements: JSON.stringify([
-          { documentTypeId: "does-not-exist", requirementStatus: "REQUIRED" },
-        ]),
-      }),
-    );
-
-    expect(state?.errors?.documentRequirements).toBeDefined();
-    expect(await prisma.job.count()).toBe(before);
-  });
-
-  it("rejects a malformed document requirements payload", async () => {
-    const recruiter = await createTestUser({ role: "RECRUITER" });
-    signIn(recruiter);
-
-    const before = await prisma.job.count();
-    const state = await createJobAction(
-      undefined,
-      jobForm({ documentRequirements: "{not-json" }),
-    );
-
-    expect(state?.errors?.documentRequirements).toBeDefined();
-    expect(await prisma.job.count()).toBe(before);
-  });
-
-  it("reconciles requirements on update: keeps, removes, reorders and adds", async () => {
-    const recruiter = await createTestUser({ role: "RECRUITER" });
-    signIn(recruiter);
-    const job = await createTestJob({ createdById: recruiter.id });
-    const first = await createTestRequirement({
-      jobId: job.id,
-      customName: "First",
-      displayOrder: 0,
-    });
-    const second = await createTestRequirement({
-      jobId: job.id,
-      customName: "Second",
-      displayOrder: 1,
-    });
-    const third = await createTestRequirement({
-      jobId: job.id,
-      customName: "Third",
-      displayOrder: 2,
-    });
-
-    await expectRedirect(
-      updateJobAction(
-        undefined,
-        jobForm({
-          id: job.id,
-          documentRequirements: JSON.stringify([
-            { id: second.id, customName: "Second", requirementStatus: "OPTIONAL" },
-            { id: first.id, customName: "First", requirementStatus: "REQUIRED" },
-            { customName: "Fourth", requirementStatus: "REQUIRED" },
-          ]),
-        }),
-      ),
-    );
-
-    const requirements = await prisma.jobDocumentRequirement.findMany({
-      where: { jobId: job.id },
-      orderBy: { displayOrder: "asc" },
-    });
-    expect(requirements.map((row) => row.id)).toContain(first.id);
-    expect(requirements.map((row) => row.id)).toContain(second.id);
-    expect(requirements.map((row) => row.id)).not.toContain(third.id);
-
-    expect(requirements.map((row) => row.customName)).toEqual([
-      "Second",
-      "First",
-      "Fourth",
-    ]);
-    expect(requirements[0].requirementStatus).toBe("OPTIONAL");
-    expect(requirements[1].requirementStatus).toBe("REQUIRED");
-  });
-
-  it("removes all requirements when the submitted list is empty", async () => {
-    const recruiter = await createTestUser({ role: "RECRUITER" });
-    signIn(recruiter);
-    const job = await createTestJob({ createdById: recruiter.id });
-    await createTestRequirement({ jobId: job.id, customName: "Only one" });
-
-    await expectRedirect(
-      updateJobAction(
-        undefined,
-        jobForm({ id: job.id, documentRequirements: "[]" }),
-      ),
-    );
-
-    const count = await prisma.jobDocumentRequirement.count({
-      where: { jobId: job.id },
-    });
-    expect(count).toBe(0);
   });
 });

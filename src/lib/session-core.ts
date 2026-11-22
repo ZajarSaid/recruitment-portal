@@ -7,11 +7,16 @@ import { SignJWT, jwtVerify } from "jose";
  */
 
 export const SESSION_COOKIE_NAME = "session";
-export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
+export function getSessionPolicy(role: string) {
+  return role === "CANDIDATE"
+    ? { idleSeconds: 30 * 60, maxAgeSeconds: 24 * 60 * 60 }
+    : { idleSeconds: 15 * 60, maxAgeSeconds: 8 * 60 * 60 };
+}
 
 export type SessionPayload = {
   userId: string;
   role: string;
+  adminVerified?: true;
 };
 
 const ALGORITHM = "HS256";
@@ -27,10 +32,12 @@ function getEncodedKey(): Uint8Array {
 }
 
 export async function encryptSession(payload: SessionPayload): Promise<string> {
-  return new SignJWT({ userId: payload.userId, role: payload.role })
+  const issuedAt = Math.floor(Date.now() / 1000);
+  return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: ALGORITHM })
-    .setIssuedAt()
-    .setExpirationTime(`${SESSION_MAX_AGE_SECONDS}s`)
+    .setJti(crypto.randomUUID())
+    .setIssuedAt(issuedAt)
+    .setExpirationTime(issuedAt + getSessionPolicy(payload.role).maxAgeSeconds)
     .sign(getEncodedKey());
 }
 
@@ -41,13 +48,16 @@ export async function decryptSession(
   try {
     const { payload } = await jwtVerify(token, getEncodedKey(), {
       algorithms: [ALGORITHM],
+      requiredClaims: ["jti", "iat", "exp"],
     });
     const userId = payload.userId;
     const role = payload.role;
     if (typeof userId !== "string" || typeof role !== "string") {
       return null;
     }
-    return { userId, role };
+    return payload.adminVerified === true
+      ? { userId, role, adminVerified: true }
+      : { userId, role };
   } catch {
     return null;
   }

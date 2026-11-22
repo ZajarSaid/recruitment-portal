@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { getCurrentUser, requireRole, requireUser } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { resetRateLimits } from "@/lib/rate-limit";
-import { createSession, getSession } from "@/lib/session";
+import { createSession, deleteSession, getSession } from "@/lib/session";
 import { SESSION_COOKIE_NAME } from "@/lib/session-core";
 import { createTestUser } from "../harness/fixtures";
-import { resetCookies, setCookie } from "../harness/cookies";
+import { getCookie, resetCookies, setCookie } from "../harness/cookies";
 
 beforeEach(() => {
   resetCookies();
@@ -18,7 +18,11 @@ async function signInAs(user: {
   role: string;
   isActive?: boolean;
 }): Promise<void> {
-  await createSession({ userId: user.id, role: user.role });
+  await createSession({
+    userId: user.id,
+    role: user.role,
+    ...(user.role === "ADMIN" && { adminVerified: true as const }),
+  });
 }
 
 describe("getCurrentUser", () => {
@@ -39,18 +43,15 @@ describe("getCurrentUser", () => {
     expect(current?.isActive).toBe(true);
   });
 
-  it("ignores a forged role in the cookie and trusts the database", async () => {
+  it("rejects a signed token that has no server-side session", async () => {
     const user = await createTestUser({ role: "CANDIDATE" });
 
-    // Attacker forges an ADMIN session token for a candidate account.
-    setCookie(
-      SESSION_COOKIE_NAME,
-      await encryptAdminToken(user.id),
-    );
+    // A signed token alone does not establish a server-side session.
+    setCookie(SESSION_COOKIE_NAME, await encryptAdminToken(user.id));
 
     const current = await getCurrentUser();
 
-    expect(current?.role).toBe("CANDIDATE");
+    expect(current).toBeNull();
   });
 
   it("returns null for a deactivated account even with a valid session", async () => {
@@ -61,7 +62,7 @@ describe("getCurrentUser", () => {
   });
 
   it("returns null for a session that points at a missing user", async () => {
-    await createSession({ userId: "ghost-user", role: "ADMIN" });
+    setCookie(SESSION_COOKIE_NAME, await encryptAdminToken("ghost-user"));
 
     expect(await getCurrentUser()).toBeNull();
   });
@@ -115,6 +116,53 @@ async function encryptAdminToken(userId: string): Promise<string> {
 }
 
 describe("session helpers", () => {
+  it.each([
+    ["CANDIDATE", 30],
+    ["RECRUITER", 15],
+    ["ADMIN", 15],
+  ] as const)(
+    "expires an idle %s session after %i minutes",
+    async (role, minutes) => {
+      const user = await createTestUser({ role });
+      await signInAs(user);
+      await prisma.userSession.updateMany({
+        where: { userId: user.id },
+        data: { lastSeenAt: new Date(Date.now() - minutes * 60_000) },
+      });
+      expect(await getSession()).toBeNull();
+    },
+  );
+
+  it("records activity without moving the absolute expiry", async () => {
+    const user = await createTestUser();
+    await signInAs(user);
+    const where = { userId: user.id };
+    const earlier = new Date(Date.now() - 10 * 60_000);
+    await prisma.userSession.updateMany({
+      where,
+      data: { lastSeenAt: earlier },
+    });
+    const original = await prisma.userSession.findFirstOrThrow({ where });
+    expect(await getSession()).not.toBeNull();
+    const current = await prisma.userSession.findFirstOrThrow({ where });
+    expect(current.lastSeenAt.getTime()).toBeGreaterThan(earlier.getTime());
+    expect(current.expiresAt).toEqual(original.expiresAt);
+    await prisma.userSession.updateMany({
+      where,
+      data: { expiresAt: new Date() },
+    });
+    expect(await getSession()).toBeNull();
+  });
+
+  it("rejects the old cookie after sign-out", async () => {
+    const user = await createTestUser();
+    await signInAs(user);
+    const token = getCookie(SESSION_COOKIE_NAME)!;
+    await deleteSession();
+    setCookie(SESSION_COOKIE_NAME, token);
+    expect(await getSession()).toBeNull();
+  });
+
   it("round-trips createSession through getSession", async () => {
     const user = await createTestUser({ role: "CANDIDATE" });
     await signInAs(user);

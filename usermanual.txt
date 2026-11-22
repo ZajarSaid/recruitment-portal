@@ -127,12 +127,12 @@ These accounts were created by the seed script and verified against the running
 database. Passwords are case-sensitive.
 
   ADMINISTRATOR
-    Email:    admin@recruitment.go.tz
+    Email:    zacharia1199@outlook.com 
     Password: Admin@12345
     Role:     ADMIN
 
   RECRUITER
-    Email:    recruiter@recruitment.go.tz
+    Email:    zacharia1199@gmail.com 
     Password: Recruiter@12345
     Role:     RECRUITER
 

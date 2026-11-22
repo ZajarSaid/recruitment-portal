@@ -12,7 +12,10 @@ import {
   humanizeStatus,
   SALARY_LABEL,
 } from "@/lib/format";
-import { listJobRequirements } from "@/lib/job-documents";
+import {
+  JOB_CATEGORY_LABELS,
+  type JobCategoryValue,
+} from "@/lib/profile-documents";
 import { getManagedJob } from "@/lib/jobs";
 
 export const metadata: Metadata = {
@@ -40,8 +43,6 @@ export default async function ManageJobDetailPage({
   const applicationCount = await prisma.application.count({
     where: { jobId: job.id },
   });
-
-  const requirements = await listJobRequirements(job.id);
 
   return (
     <div className="space-y-6">
@@ -108,56 +109,16 @@ export default async function ManageJobDetailPage({
       </Card>
 
       <Card>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-            Document requirements
-          </h2>
-          <Link
-            href={`/recruiter/jobs/${job.id}/edit`}
-            className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-          >
-            Configure →
-          </Link>
-        </div>
-
-        {requirements.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-            No document requirements. Applicants submit only the text summary.
-          </p>
-        ) : (
-          <ul className="mt-3 space-y-2">
-            {requirements.map((requirement) => (
-              <li
-                key={requirement.id}
-                className="flex flex-wrap items-start justify-between gap-2 border-b border-zinc-100 pb-2 last:border-0 last:pb-0 dark:border-zinc-900"
-              >
-                <div>
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    {requirement.documentType?.name ??
-                      requirement.customName ??
-                      "Document"}
-                  </p>
-                  {requirement.description && (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {requirement.description}
-                    </p>
-                  )}
-                </div>
-                <Badge
-                  tone={
-                    requirement.requirementStatus === "REQUIRED"
-                      ? "red"
-                      : "amber"
-                  }
-                >
-                  {requirement.requirementStatus === "REQUIRED"
-                    ? "Required"
-                    : "Optional"}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        )}
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+          Candidate documents
+        </h2>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+          Candidates submit their education, address, languages and
+          category-specific documents ({JOB_CATEGORY_LABELS[job.category as JobCategoryValue]}
+          ) once on their profile. When they apply to this vacancy they only
+          attach a signed application letter, which you review under
+          applications.
+        </p>
       </Card>
 
       <div className="flex flex-wrap gap-4">

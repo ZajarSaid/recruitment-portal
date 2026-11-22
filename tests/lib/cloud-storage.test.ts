@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
   deleteStoredUpload,
@@ -14,7 +14,31 @@ import {
  * These tests run without Cloudinary credentials, so the storage abstraction
  * takes its local fallback path. The cloud reference helpers are pure and are
  * exercised directly.
+ *
+ * The developer `.env` may contain real Cloudinary credentials; the module
+ * captures them at import time, so they are removed before the import runs.
  */
+const { cloudinaryEnv, savedEnv } = vi.hoisted(() => {
+  const names = [
+    "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME",
+    "NEXT_PUBLIC_CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_SECRET",
+  ] as const;
+  const saved: Record<string, string | undefined> = {};
+  for (const name of names) {
+    saved[name] = process.env[name];
+    delete process.env[name];
+  }
+  return { cloudinaryEnv: names, savedEnv: saved };
+});
+
+afterAll(() => {
+  for (const name of cloudinaryEnv) {
+    const value = savedEnv[name];
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+});
 
 const PNG_BYTES = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01,
