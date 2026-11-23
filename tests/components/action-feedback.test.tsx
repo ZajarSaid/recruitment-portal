@@ -12,7 +12,7 @@ import { FEEDBACK_COOKIE } from "@/lib/feedback-messages";
 
 vi.mock("next/navigation", () => {
   const search = new URLSearchParams();
-  return { usePathname: () => "/dashboard", useSearchParams: () => search };
+  return { usePathname: () => "/login", useSearchParams: () => search };
 });
 
 it("only runs a confirmation after the user approves it", () => {
@@ -63,4 +63,11 @@ it("shows redirect and action feedback and lets users dismiss notifications", ()
   expect(error.textContent).toContain("Upload failed.");
   fireEvent.click(error.querySelector("button")!);
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("shows the successful logout notification on the sign-in page", () => {
+  document.cookie = `${FEEDBACK_COOKIE}=signed-out; Path=/`;
+  render(<ToastViewport />);
+  expect(screen.getByRole("status").textContent).toContain("Logged out successfully.");
+  expect(document.cookie).not.toContain(FEEDBACK_COOKIE);
 });

@@ -5,6 +5,8 @@ import { useFeedbackAction } from "@/components/action-feedback";
 import Link from "next/link";
 import {
   startTransition,
+  useEffect,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
@@ -77,13 +79,13 @@ const profileSections = [
     label: "Academic information & documents",
     fields: ["educationLevel", "category"],
   },
-  { id: "experience", label: "Experience", fields: ["experienceSummary"] },
-  { id: "languages", label: "Language proficiency", fields: ["languages"] },
   {
     id: "computer-literacy",
     label: "Computer literacy",
     fields: ["computerLiteracy"],
   },
+  { id: "languages", label: "Language proficiency", fields: ["languages"] },
+  { id: "experience", label: "Experience", fields: ["experienceSummary"] },
 ];
 
 export function ProfileForm({
@@ -92,6 +94,8 @@ export function ProfileForm({
   savedPhotoSource,
   maxBytes,
   redirectToApply,
+  canApply,
+  applicationThreshold,
   incompleteNotice,
   overview,
   applications,
@@ -102,6 +106,8 @@ export function ProfileForm({
   savedPhotoSource?: string | null;
   maxBytes: number;
   redirectToApply: string | null;
+  canApply: boolean;
+  applicationThreshold: number;
   incompleteNotice: boolean;
   overview: ReactNode;
   applications?: ReactNode;
@@ -109,13 +115,24 @@ export function ProfileForm({
 }) {
   const entryPanel = showApplicationsInitially
     ? "profile-applications"
-    : "profile-overview";
-  const [selection, setSelection] = useState({ entryPanel, panel: entryPanel });
+    : redirectToApply ? profileSections[0].id : "profile-overview";
+  const [selection, setSelection] = useState({
+    entryPanel,
+    panel: !initial && !showApplicationsInitially ? profileSections[0].id : entryPanel,
+  });
   const selected =
     selection.entryPanel === entryPanel ? selection.panel : entryPanel;
   function setSelected(panel: string) {
     setSelection({ entryPanel, panel });
   }
+  const stepIndex = profileSections.findIndex(({ id }) => id === selected);
+  const nextStep = stepIndex >= 0 ? profileSections[stepIndex + 1] : undefined;
+  const stepIndicator = useRef<HTMLDivElement>(null);
+  const previousPanel = useRef(selected);
+  useEffect(() => {
+    if (previousPanel.current !== selected) stepIndicator.current?.focus();
+    previousPanel.current = selected;
+  }, [selected]);
   const [state, action, saving] = useFeedbackAction(
     async (
       previous: Awaited<ReturnType<typeof saveProfileAction>>,
@@ -126,6 +143,7 @@ export function ProfileForm({
         section.fields.some((field) => result?.errors?.[field]?.length),
       );
       if (invalidSection) setSelected(invalidSection.id);
+      else if (result?.ok && nextStep) setSelected(nextStep.id);
       return result;
     },
     undefined,
@@ -180,6 +198,7 @@ export function ProfileForm({
             type="button"
             aria-current={showingOverview ? "true" : undefined}
             aria-controls="profile-overview"
+            disabled={saving}
             onClick={() => setSelected("profile-overview")}
             className={navButtonClass}
           >
@@ -190,45 +209,46 @@ export function ProfileForm({
               type="button"
               aria-current={showingApplications ? "true" : undefined}
               aria-controls="profile-applications"
+              disabled={saving}
               onClick={() => setSelected("profile-applications")}
               className={navButtonClass}
             >
               My applications
             </button>
           )}
-          <ul className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1">
-            {profileSections.map(({ id, label }) => (
+          <ol className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1">
+            {profileSections.map(({ id, label }, index) => (
               <li key={id} className="min-w-0">
                 <button
                   type="button"
-                  aria-current={selected === id ? "true" : undefined}
+                  aria-current={selected === id ? "step" : undefined}
                   aria-controls={`profile-section-${id}`}
+                  disabled={saving}
                   onClick={() => setSelected(id)}
-                  className={navButtonClass}
+                  className={`${navButtonClass} aria-[current=step]:bg-indigo-100 aria-[current=step]:text-indigo-800 dark:aria-[current=step]:bg-indigo-950 dark:aria-[current=step]:text-indigo-100`}
                 >
-                  {label}
+                  <span aria-hidden="true">{index + 1}. </span>{label}
                 </button>
               </li>
             ))}
-          </ul>
+          </ol>
         </nav>
       </aside>
       <div className="min-w-0 space-y-5">
-        {incompleteNotice && (
+        {canApply && !showingApplications ? (
+          <Alert tone="success">
+            Your profile meets the application requirement.{" "}
+            <Link href={redirectToApply ?? "/jobs"} className="font-semibold underline">
+              {redirectToApply ? "Continue to your application" : "Browse vacancies"}
+            </Link>
+          </Alert>
+        ) : incompleteNotice && (
           <Alert tone="info">
-            Bring your profile completion above 60% before applying.
+            Bring your profile completion above {applicationThreshold}% before applying.
           </Alert>
         )}
         <div id="profile-overview" hidden={!showingOverview}>
           {overview}
-          {redirectToApply && (
-            <Link
-              href={redirectToApply}
-              className="mt-5 inline-flex text-sm font-semibold text-indigo-700 hover:underline dark:text-indigo-300"
-            >
-              Back to application
-            </Link>
-          )}
         </div>
         {applications && (
           <div id="profile-applications" hidden={!showingApplications}>
@@ -241,6 +261,19 @@ export function ProfileForm({
           className="min-w-0 space-y-5 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-950/5 sm:p-6 dark:border-zinc-800 dark:bg-zinc-950"
           noValidate
         >
+          <div ref={stepIndicator} tabIndex={-1} className="scroll-mt-24">
+            <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+              Step {stepIndex + 1} of {profileSections.length}
+            </p>
+            <div aria-hidden="true" className="mt-2 flex gap-1">
+              {profileSections.map(({ id }, index) => (
+                <span
+                  key={id}
+                  className={`h-1.5 flex-1 rounded-full ${index <= stepIndex ? "bg-indigo-600 dark:bg-indigo-400" : "bg-indigo-100 dark:bg-zinc-800"}`}
+                />
+              ))}
+            </div>
+          </div>
           <section
             id="profile-section-personal-details"
             hidden={selected !== "personal-details"}
@@ -397,7 +430,7 @@ export function ProfileForm({
                   </p>
                   {!initial && (
                     <p className="text-sm text-zinc-600 dark:text-zinc-300">
-                      Save your profile below to enable document uploads.
+                      Save the first step to enable document uploads.
                     </p>
                   )}
                   <ul className="divide-y divide-indigo-100 rounded-xl border border-indigo-100 dark:divide-zinc-800 dark:border-zinc-800">
@@ -501,19 +534,19 @@ export function ProfileForm({
                 </Alert>
               </div>
             )}
-            <SubmitButton disabled={saving || anyUploading}>
-              {saving ? "Saving profile…" : "Save profile"}
-            </SubmitButton>
-            {redirectToApply && (
-              <Link
-                href={redirectToApply}
-                className="text-sm text-zinc-600 hover:underline dark:text-zinc-300"
+            {stepIndex > 0 && (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setSelected(profileSections[stepIndex - 1].id)}
+                className="min-h-11 rounded-lg border border-zinc-300 px-4 text-sm font-semibold disabled:opacity-60 dark:border-zinc-700"
               >
-                {incompleteNotice
-                  ? "Continue to your application"
-                  : "Back to application"}
-              </Link>
+                Back
+              </button>
             )}
+            <SubmitButton disabled={saving || anyUploading}>
+              {saving ? "Saving profile…" : nextStep ? "Save and continue" : "Save profile"}
+            </SubmitButton>
           </div>
         </form>
       </div>

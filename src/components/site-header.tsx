@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { ThemeToggle } from "@/components/theme-toggle";
-import { logoutAction } from "@/lib/actions/auth";
+import { LogoutButton } from "@/components/logout-button";
 import { getCurrentUser } from "@/lib/dal";
 import { isJobManager } from "@/lib/navigation";
 import { ROLE_LABELS } from "@/lib/roles";
@@ -69,11 +69,7 @@ export async function SiteHeader() {
                 >
                   {user.name} · {ROLE_LABELS[user.role]}
                 </span>
-                <form action={logoutAction}>
-                  <button type="submit" className={`${navLinkClass} border border-zinc-300 px-3 dark:border-zinc-700`}>
-                    Sign out
-                  </button>
-                </form>
+                <LogoutButton className={`${navLinkClass} border border-zinc-300 px-3 dark:border-zinc-700`} />
               </>
             ) : (
               <>

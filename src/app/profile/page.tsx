@@ -34,8 +34,7 @@ export default async function ProfilePage({
   const incompleteNotice = params.incomplete === "1";
   const nextPath =
     typeof params.next === "string" &&
-    params.next.startsWith("/") &&
-    !params.next.startsWith("//")
+    /^\/jobs\/[\w-]+\/apply$/.test(params.next)
       ? params.next
       : null;
 
@@ -145,6 +144,8 @@ export default async function ProfilePage({
         savedPhotoSource={photoSource}
         maxBytes={env.maxUploadBytes}
         redirectToApply={nextPath}
+        canApply={canApply}
+        applicationThreshold={APPLICATION_PROFILE_THRESHOLD}
         incompleteNotice={incompleteNotice && !canApply}
         overview={
           <div className="min-w-0 space-y-5">
@@ -224,18 +225,14 @@ export default async function ProfilePage({
                     ))}
                   </dl>
                 )}
-                <Link
-                  href={
-                    applicationTotal > 0
-                      ? "/profile?section=applications"
-                      : "/jobs"
-                  }
-                  className="mt-3 inline-flex text-sm font-semibold text-indigo-700 hover:underline dark:text-indigo-300"
-                >
-                  {applicationTotal > 0
-                    ? "View my applications"
-                    : "Browse vacancies"}
-                </Link>
+                {applicationTotal > 0 && (
+                  <Link
+                    href="/profile?section=applications"
+                    className="mt-3 inline-flex text-sm font-semibold text-indigo-700 hover:underline dark:text-indigo-300"
+                  >
+                    View my applications
+                  </Link>
+                )}
               </Card>
             </div>
 

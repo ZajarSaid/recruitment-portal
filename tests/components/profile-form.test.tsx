@@ -35,6 +35,8 @@ it("opens on the overview and preserves edits when switching profile sections", 
       initialDocuments={[]}
       maxBytes={1024}
       redirectToApply={null}
+      canApply={false}
+      applicationThreshold={60}
       incompleteNotice={false}
       overview={<h2>Profile overview</h2>}
       applications={<h2>My applications</h2>}
@@ -83,4 +85,33 @@ it("opens on the overview and preserves edits when switching profile sections", 
   const submitted = vi.mocked(saveProfileAction).mock.calls[0]?.[1];
   expect(submitted?.get("languages")).toBe("Kiswahili (fluent), English");
   expect(submitted?.get("educationLevel")).toBe("BACHELOR");
+});
+
+it("starts a new profile at step one and only advances after a successful save", async () => {
+  vi.mocked(saveProfileAction)
+    .mockResolvedValueOnce({ errors: { physicalAddress: ["Enter a valid address."] } })
+    .mockResolvedValueOnce({ ok: true, message: "Profile saved." });
+  const props = {
+    initial: null,
+    initialDocuments: [],
+    maxBytes: 1024,
+    redirectToApply: "/jobs/job-1/apply",
+    applicationThreshold: 60,
+    overview: <h2>Profile overview</h2>,
+  };
+  const { rerender } = render(<ProfileForm {...props} canApply={false} incompleteNotice />);
+
+  expect(screen.getByText("Step 1 of 5")).toBeDefined();
+  expect(screen.queryByRole("link", { name: "Continue to your application" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
+  await screen.findByText("Enter a valid address.");
+  expect(screen.getByText("Step 1 of 5")).toBeDefined();
+
+  fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
+  await screen.findByText("Step 2 of 5");
+  rerender(<ProfileForm {...props} canApply incompleteNotice={false} />);
+  expect(screen.getByRole("link", { name: "Continue to your application" }).getAttribute("href"))
+    .toBe("/jobs/job-1/apply");
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
+  expect(screen.getByText("Step 1 of 5")).toBeDefined();
 });
