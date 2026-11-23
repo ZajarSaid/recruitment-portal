@@ -182,7 +182,7 @@ export function DocumentUploadField({
           className={
             document
               ? "hidden"
-              : "mt-2 block w-full text-sm text-zinc-700 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-900 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-zinc-700 disabled:opacity-60 dark:text-zinc-300 dark:file:bg-zinc-50 dark:file:text-zinc-900"
+              : "mt-2 block min-w-0 w-full text-sm text-zinc-700 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-900 file:px-3 file:py-3 file:text-sm file:font-medium file:text-white hover:file:bg-zinc-700 disabled:opacity-60 dark:text-zinc-300 dark:file:bg-zinc-50 dark:file:text-zinc-900"
           }
         />
       </div>

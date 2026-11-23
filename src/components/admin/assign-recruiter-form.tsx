@@ -23,7 +23,7 @@ export function AssignRecruiterForm({
       )}
       <form action={action} className="flex flex-wrap items-end gap-3" noValidate>
         <input type="hidden" name="jobId" value={jobId} />
-        <div className="min-w-[16rem] flex-1">
+        <div className="w-full min-w-0 sm:flex-1">
           <Field
             label="Assigned recruiter email"
             htmlFor={`recruiterEmail-${jobId}`}

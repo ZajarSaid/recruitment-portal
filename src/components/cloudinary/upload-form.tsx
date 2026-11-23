@@ -38,7 +38,7 @@ export function UploadForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <input type="file" name="file" required className="block" />
+      <input type="file" name="file" required className="block w-full min-w-0" />
       <button
         type="submit"
         disabled={pending}

@@ -15,7 +15,7 @@ export default async function HomePage() {
   const featured = jobs.slice(0, 3);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-12">
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
       <section className="grid gap-8 lg:grid-cols-2 lg:items-center">
         <div>
           <p className="text-sm font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
@@ -29,17 +29,17 @@ export default async function HomePage() {
             Submit your application, attach the required documents, and track
             your progress — all in one place.
           </p>
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Link
               href="/jobs"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-colors hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-colors hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
             >
               Browse jobs
             </Link>
             {!user && (
               <Link
                 href="/register"
-                className="rounded-lg border border-indigo-200 bg-white/70 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-50 dark:border-zinc-700 dark:bg-transparent dark:text-zinc-200 dark:hover:bg-zinc-900"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-indigo-200 bg-white/70 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-50 dark:border-zinc-700 dark:bg-transparent dark:text-zinc-200 dark:hover:bg-zinc-900"
               >
                 Create a candidate account
               </Link>
@@ -52,7 +52,7 @@ export default async function HomePage() {
       </section>
 
       <section className="mt-12">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
             Latest vacancies
           </h2>

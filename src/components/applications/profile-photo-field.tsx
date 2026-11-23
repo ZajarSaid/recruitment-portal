@@ -121,7 +121,7 @@ export function ProfilePhotoField({
           </div>
         )}
 
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 max-w-full flex-col gap-2">
           <input
             id={inputId}
             type="file"
@@ -132,7 +132,7 @@ export function ProfilePhotoField({
               event.target.value = "";
               if (file) handleFile(file);
             }}
-            className="block w-full text-sm text-zinc-700 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-900 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-zinc-700 disabled:opacity-60 dark:text-zinc-300 dark:file:bg-zinc-50 dark:file:text-zinc-900"
+            className="block min-w-0 w-full text-sm text-zinc-700 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-900 file:px-3 file:py-3 file:text-sm file:font-medium file:text-white hover:file:bg-zinc-700 disabled:opacity-60 dark:text-zinc-300 dark:file:bg-zinc-50 dark:file:text-zinc-900"
           />
           {photo && (
             <button

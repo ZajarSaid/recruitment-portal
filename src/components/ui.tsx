@@ -97,7 +97,7 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <div className={className}>
+    <div className={`min-w-0 ${className}`}>
       <label
         htmlFor={htmlFor}
         className="block text-sm font-medium text-zinc-900 dark:text-zinc-100"
@@ -114,7 +114,7 @@ export function Field({
 }
 
 const controlClasses =
-  "block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-900/50";
+  "block min-h-11 w-full min-w-0 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base sm:text-sm text-zinc-900 shadow-sm outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-900/50";
 
 export function TextInput({
   className = "",
@@ -171,7 +171,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 p-10 text-center dark:border-zinc-700 dark:bg-transparent">
+    <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 px-4 py-8 text-center sm:p-10 dark:border-zinc-700 dark:bg-transparent">
       <p className="text-base font-medium text-zinc-900 dark:text-zinc-100">
         {title}
       </p>

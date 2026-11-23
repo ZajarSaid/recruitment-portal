@@ -42,9 +42,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="flex min-h-full flex-col bg-gradient-to-br from-indigo-50 via-white to-sky-100 text-slate-900 dark:from-zinc-950 dark:via-zinc-900 dark:to-slate-950 dark:text-zinc-100">
         <SiteHeader />
-        <div className="flex-1">{children}</div>
+        <div id="page-content" tabIndex={-1} className="min-w-0 flex-1 lg:scroll-mt-24">{children}</div>
         <Suspense fallback={null}><ToastViewport /></Suspense>
-        <footer className="border-t border-zinc-200/70 py-6 text-center text-xs text-zinc-500 backdrop-blur-sm dark:border-zinc-800/70 dark:text-zinc-400">
+        <footer className="border-t border-zinc-200/70 px-4 py-6 text-center text-xs text-zinc-500 backdrop-blur-sm dark:border-zinc-800/70 dark:text-zinc-400">
           Careers and recruitment portal. Automated resume scoring (when
           enabled) is a simulated assessment, not a validated measure of
           suitability.

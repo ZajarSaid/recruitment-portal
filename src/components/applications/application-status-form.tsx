@@ -73,7 +73,7 @@ export function ApplicationStatusForm({
           </Select>
         </Field>
 
-        <div className="min-w-[16rem] flex-1">
+        <div className="w-full min-w-0 sm:flex-1">
           <Field
             label="Review note (optional)"
             htmlFor="note"

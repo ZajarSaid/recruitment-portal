@@ -55,7 +55,7 @@ export function LoginForm({ next }: { next?: string }) {
             aria-controls="password"
             aria-label={showPassword ? "Hide password" : "Show password"}
             onClick={() => setShowPassword(!showPassword)}
-            className="min-h-10 shrink-0 rounded-lg border border-zinc-300 px-3 text-sm font-medium text-indigo-700 hover:bg-indigo-50 dark:border-zinc-700 dark:text-indigo-300 dark:hover:bg-indigo-950"
+            className="min-h-11 shrink-0 rounded-lg border border-zinc-300 px-3 text-sm font-medium text-indigo-700 hover:bg-indigo-50 dark:border-zinc-700 dark:text-indigo-300 dark:hover:bg-indigo-950"
           >
             {showPassword ? "Hide" : "Show"}
           </button>

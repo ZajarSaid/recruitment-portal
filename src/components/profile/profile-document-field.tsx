@@ -180,7 +180,7 @@ export function ProfileDocumentField({
         />
         <label
           htmlFor={inputId}
-          className="inline-flex cursor-pointer rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-disabled:cursor-default peer-disabled:opacity-50 dark:border-indigo-900 dark:bg-zinc-950 dark:text-indigo-300 dark:hover:bg-indigo-950"
+          className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-disabled:cursor-default peer-disabled:opacity-50 dark:border-indigo-900 dark:bg-zinc-950 dark:text-indigo-300 dark:hover:bg-indigo-950"
         >
           {document ? "Replace file" : "Choose file"}
         </label>

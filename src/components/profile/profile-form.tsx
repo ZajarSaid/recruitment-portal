@@ -173,8 +173,8 @@ export function ProfileForm({
     "w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-zinc-700 hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-indigo-600 aria-[current=true]:bg-indigo-100 aria-[current=true]:text-indigo-800 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:aria-[current=true]:bg-indigo-950 dark:aria-[current=true]:text-indigo-100";
 
   return (
-    <div className="grid min-w-0 items-start gap-5 md:grid-cols-[14rem_minmax(0,1fr)] lg:grid-cols-[16rem_minmax(0,1fr)]">
-      <aside className="min-w-0 rounded-2xl border border-indigo-100 bg-white p-2 shadow-sm shadow-indigo-950/5 dark:border-zinc-800 dark:bg-zinc-950 md:sticky md:top-24">
+    <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[16rem_minmax(0,1fr)]">
+      <aside className="min-w-0 rounded-2xl border border-indigo-100 bg-white p-2 shadow-sm shadow-indigo-950/5 dark:border-zinc-800 dark:bg-zinc-950 lg:sticky lg:top-24">
         <nav aria-label="Profile sections">
           <button
             type="button"
@@ -196,7 +196,7 @@ export function ProfileForm({
               My applications
             </button>
           )}
-          <ul className="grid grid-cols-2 gap-1 md:grid-cols-1">
+          <ul className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1">
             {profileSections.map(({ id, label }) => (
               <li key={id} className="min-w-0">
                 <button
