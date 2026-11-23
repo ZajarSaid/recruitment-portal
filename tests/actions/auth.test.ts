@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  activateCandidateAction,
   loginAction,
   logoutAction,
   registerAction,
   forgotPasswordAction,
 } from "@/lib/actions/auth";
 import { prisma } from "@/lib/db";
+import { sendCandidateActivationEmail } from "@/lib/email/candidate-activation-email";
 import { schedulePasswordResetEmail } from "@/lib/email/password-reset-email";
 import { resetRateLimits } from "@/lib/rate-limit";
 import {
@@ -19,6 +21,10 @@ import { expectRedirect } from "../harness/redirect";
 
 vi.mock("@/lib/email/password-reset-email", () => ({
   schedulePasswordResetEmail: vi.fn(),
+}));
+
+vi.mock("@/lib/email/candidate-activation-email", () => ({
+  sendCandidateActivationEmail: vi.fn(),
 }));
 
 describe("password reset email", () => {
@@ -46,9 +52,10 @@ describe("registration", () => {
   beforeEach(() => {
     resetCookies();
     resetRateLimits();
+    vi.mocked(sendCandidateActivationEmail).mockReset().mockResolvedValue({ delivered: true });
   });
 
-  it("creates a CANDIDATE account, signs the user in, and redirects", async () => {
+  it("emails a one-time activation link and requires confirmation before login", async () => {
     const email = uniqueEmail("register");
     const data = formData({
       name: "Asha Moyo",
@@ -59,7 +66,7 @@ describe("registration", () => {
 
     const target = await expectRedirect(registerAction(undefined, data));
 
-    expect(target).toBe("/profile");
+    expect(target).toBe("/login?activation=sent");
 
     const user = await prisma.user.findUnique({ where: { email } });
     expect(user).not.toBeNull();
@@ -67,10 +74,52 @@ describe("registration", () => {
     expect(user?.isActive).toBe(true);
     expect(user?.passwordHash).not.toBe(DEFAULT_TEST_PASSWORD);
 
-    const token = getCookie(SESSION_COOKIE_NAME);
-    expect(token).toBeDefined();
-    const session = await decryptSession(token);
-    expect(session).toEqual({ userId: user?.id, role: "CANDIDATE" });
+    expect(getCookie(SESSION_COOKIE_NAME)).toBeUndefined();
+    expect(sendCandidateActivationEmail).toHaveBeenCalledExactlyOnceWith(
+      email,
+      expect.stringMatching(/^http:\/\/localhost:3000\/activate-account\?token=[0-9a-f]{64}$/),
+    );
+    const [, url] = vi.mocked(sendCandidateActivationEmail).mock.calls[0];
+    const token = new URL(url).searchParams.get("token")!;
+    expect(user?.activationTokenHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(user?.activationTokenHash).not.toBe(token);
+
+    const credentials = formData({ email, password: DEFAULT_TEST_PASSWORD });
+    expect((await loginAction(undefined, credentials))?.message).toMatch(/activate your account/i);
+    expect(getCookie(SESSION_COOKIE_NAME)).toBeUndefined();
+    expect(await expectRedirect(activateCandidateAction(formData({ token })))).toBe("/login?activation=confirmed");
+    expect(getCookie(SESSION_COOKIE_NAME)).toBeUndefined();
+    expect(await expectRedirect(activateCandidateAction(formData({ token })))).toBe("/login?activation=invalid");
+    expect(await expectRedirect(loginAction(undefined, credentials))).toBe("/profile");
+    expect(await decryptSession(getCookie(SESSION_COOKIE_NAME))).toEqual({
+      userId: user?.id, role: "CANDIDATE",
+    });
+  });
+
+  it("replaces an expired link when the candidate requests another with valid credentials", async () => {
+    const email = uniqueEmail("activation-resend");
+    await expectRedirect(registerAction(undefined, formData({
+      name: "Asha Moyo",
+      email,
+      password: DEFAULT_TEST_PASSWORD,
+      confirmPassword: DEFAULT_TEST_PASSWORD,
+    })));
+    const [, originalUrl] = vi.mocked(sendCandidateActivationEmail).mock.calls[0];
+    const originalToken = new URL(originalUrl).searchParams.get("token")!;
+    await prisma.user.update({
+      where: { email },
+      data: { activationExpiresAt: new Date(Date.now() - 1000) },
+    });
+    expect(await expectRedirect(activateCandidateAction(formData({ token: originalToken })))).toBe("/login?activation=invalid");
+
+    const resend = formData({ email, password: DEFAULT_TEST_PASSWORD, intent: "resend-activation" });
+    expect((await loginAction(undefined, resend))?.ok).toBe(true);
+    const [, replacementUrl] = vi.mocked(sendCandidateActivationEmail).mock.calls[1];
+    const token = new URL(replacementUrl).searchParams.get("token")!;
+    expect(token).not.toBe(originalToken);
+    expect((await loginAction(undefined, resend))?.ok).toBeUndefined();
+    expect(sendCandidateActivationEmail).toHaveBeenCalledTimes(2);
+    expect(await expectRedirect(activateCandidateAction(formData({ token })))).toBe("/login?activation=confirmed");
   });
 
   it("never lets a client-supplied role escalate privileges", async () => {

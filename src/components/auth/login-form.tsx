@@ -10,15 +10,15 @@ import { Alert, Field, TextInput } from "@/components/ui";
 import { loginAction } from "@/lib/actions/auth";
 
 export function LoginForm({ next }: { next?: string }) {
-  const [state, action] = useFeedbackAction(loginAction, undefined);
+  const [state, action, pending] = useFeedbackAction(loginAction, undefined);
   const [email, setEmail] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   return (
     <form action={action} className="space-y-4" noValidate>
       {state?.message && (
-        <div role="alert">
-          <Alert tone="error">{state.message}</Alert>
+        <div role={state.ok ? "status" : "alert"}>
+          <Alert tone={state.ok ? "success" : "error"}>{state.message}</Alert>
         </div>
       )}
       {next && <input type="hidden" name="next" value={next} />}
@@ -71,9 +71,18 @@ export function LoginForm({ next }: { next?: string }) {
         </Link>
       </div>
 
-      <SubmitButton className="w-full" pendingLabel="Signing in…">
+      <SubmitButton className="w-full" pendingLabel="Please wait…">
         Sign in
       </SubmitButton>
+      <button
+        type="submit"
+        name="intent"
+        value="resend-activation"
+        disabled={pending}
+        className="min-h-11 w-full rounded-lg border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60 dark:border-zinc-700 dark:text-indigo-300 dark:hover:bg-zinc-900"
+      >
+        Resend activation email
+      </button>
     </form>
   );
 }

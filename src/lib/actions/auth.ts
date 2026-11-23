@@ -12,13 +12,13 @@ import {
   type ActionState,
 } from "@/lib/definitions";
 import { prisma } from "@/lib/db";
+import { sendCandidateActivationEmail } from "@/lib/email/candidate-activation-email";
 import { schedulePasswordResetEmail } from "@/lib/email/password-reset-email";
 import { env } from "@/lib/env";
 import { flashFeedback } from "@/lib/flash-feedback";
 import { roleHome } from "@/lib/navigation";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
-import type { AppRole } from "@/lib/roles";
 import { createSession, deleteSession } from "@/lib/session";
 
 function formValue(formData: FormData, key: string): string {
@@ -26,8 +26,24 @@ function formValue(formData: FormData, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
-function hashResetToken(rawToken: string): string {
+function hashToken(rawToken: string): string {
   return createHash("sha256").update(rawToken).digest("hex");
+}
+
+const ACTIVATION_TTL_MS = 24 * 60 * 60 * 1000;
+const ACTIVATION_RESEND_DELAY_MS = 60_000;
+
+function issueActivationLink() {
+  const token = randomBytes(32).toString("hex");
+  const url = new URL("/activate-account", env.appUrl);
+  url.searchParams.set("token", token);
+  return {
+    url: url.toString(),
+    data: {
+      activationTokenHash: hashToken(token),
+      activationExpiresAt: new Date(Date.now() + ACTIVATION_TTL_MS),
+    },
+  };
 }
 
 /** Only allow same-site absolute paths to prevent open redirects. */
@@ -69,21 +85,36 @@ export async function registerAction(
     };
   }
 
-  let createdUser: { id: string; role: AppRole };
+  const activation = issueActivationLink();
   try {
     const passwordHash = await hashPassword(password);
-    createdUser = await prisma.user.create({
-      data: { name, email, passwordHash, role: "CANDIDATE" },
+    await prisma.user.create({
+      data: { name, email, passwordHash, role: "CANDIDATE", ...activation.data },
     });
   } catch {
     return { message: "Could not create your account. Please try again." };
   }
 
-  await createSession({ userId: createdUser.id, role: createdUser.role });
-  await flashFeedback("registered");
-  // New candidates land on their profile so they can fill their master
-  // details before applying to vacancies.
-  redirect("/profile");
+  const { delivered } = await sendCandidateActivationEmail(email, activation.url);
+  redirect(delivered ? "/login?activation=sent" : "/login?activation=delivery-failed");
+}
+
+export async function activateCandidateAction(formData: FormData): Promise<void> {
+  const token = formValue(formData, "token");
+  if (!/^[0-9a-f]{64}$/.test(token)) {
+    redirect("/login?activation=invalid");
+  }
+
+  const activated = await prisma.user.updateMany({
+    where: {
+      role: "CANDIDATE",
+      isActive: true,
+      activationTokenHash: hashToken(token),
+      activationExpiresAt: { gt: new Date() },
+    },
+    data: { activationTokenHash: null, activationExpiresAt: null },
+  });
+  redirect(activated.count ? "/login?activation=confirmed" : "/login?activation=invalid");
 }
 
 export async function loginAction(
@@ -121,6 +152,37 @@ export async function loginAction(
 
   if (!user.isActive) {
     return { message: "This account has been deactivated." };
+  }
+
+  if (user.role === "CANDIDATE" && user.activationTokenHash) {
+    if (formValue(formData, "intent") !== "resend-activation") {
+      return { message: "Activate your account using the link in your email before signing in." };
+    }
+
+    const activation = issueActivationLink();
+    const renewed = await prisma.user.updateMany({
+      where: {
+        id: user.id,
+        role: "CANDIDATE",
+        isActive: true,
+        activationTokenHash: user.activationTokenHash,
+        activationExpiresAt: {
+          lte: new Date(Date.now() + ACTIVATION_TTL_MS - ACTIVATION_RESEND_DELAY_MS),
+        },
+      },
+      data: activation.data,
+    });
+    if (!renewed.count) {
+      return { message: "Check your inbox or wait a minute before requesting another activation link." };
+    }
+    const { delivered } = await sendCandidateActivationEmail(user.email, activation.url);
+    return delivered
+      ? { ok: true, message: "A new activation link has been sent. Check your email." }
+      : { message: "We could not send the activation email. Please try again in a minute." };
+  }
+
+  if (formValue(formData, "intent") === "resend-activation") {
+    return { message: "Your account is already active. Select Sign in to continue." };
   }
 
   await createSession({ userId: user.id, role: user.role });
@@ -176,7 +238,7 @@ export async function forgotPasswordAction(
     await prisma.passwordResetToken.create({
       data: {
         userId: user.id,
-        tokenHash: hashResetToken(rawToken),
+        tokenHash: hashToken(rawToken),
         expiresAt: new Date(Date.now() + 60 * 60 * 1000),
       },
     });
@@ -215,7 +277,7 @@ export async function resetPasswordAction(
   const { token, password } = parsed.data;
 
   const record = await prisma.passwordResetToken.findUnique({
-    where: { tokenHash: hashResetToken(token) },
+    where: { tokenHash: hashToken(token) },
   });
 
   if (!record || record.usedAt || record.expiresAt.getTime() < Date.now()) {

@@ -41,6 +41,17 @@ describe("LoginForm", () => {
     expect(hidden?.value).toBe("/jobs");
   });
 
+  it("submits the resend intent and shows activation delivery feedback", async () => {
+    loginActionMock.mockResolvedValue({ ok: true, message: "Activation email sent." });
+    render(<LoginForm />);
+
+    const button = screen.getByRole<HTMLButtonElement>("button", { name: "Resend activation email" });
+    fireEvent(button.form!, new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: button }));
+
+    expect((await screen.findByRole("status")).textContent).toBe("Activation email sent.");
+    expect(loginActionMock.mock.calls[0][1].get("intent")).toBe("resend-activation");
+  });
+
   it("surfaces a message returned by the server action", async () => {
     loginActionMock.mockResolvedValue({
       message: "Invalid email or password.",

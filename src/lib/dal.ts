@@ -37,16 +37,19 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       email: true,
       role: true,
       isActive: true,
+      activationTokenHash: true,
       createdAt: true,
     },
   });
 
   if (!user || !user.isActive) return null;
+  const { activationTokenHash, ...currentUser } = user;
+  if (user.role === "CANDIDATE" && activationTokenHash) return null;
   if (user.role === "ADMIN" &&
     (session.role !== "ADMIN" || !session.adminVerified || !isAdminHost((await headers()).get("host")))) {
     return null;
   }
-  return user;
+  return currentUser;
 });
 
 /** Requires an authenticated user, otherwise redirects to the login page. */
