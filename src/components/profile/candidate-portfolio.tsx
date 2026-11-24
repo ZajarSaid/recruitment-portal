@@ -5,6 +5,7 @@ import type { CandidateCertification, CandidateEducation, CandidateEmployment } 
 import { ProfilePhotoField } from "@/components/applications/profile-photo-field";
 import { Badge, Card } from "@/components/ui";
 import { ProfileDocumentField } from "@/components/profile/profile-document-field";
+import { PortfolioSections } from "@/components/profile/portfolio-sections";
 import { PortfolioEditor, RemovePortfolioRecord, type PortfolioInput } from "@/components/profile/portfolio-editor";
 import type { CurrentUser } from "@/lib/dal";
 import { prisma } from "@/lib/db";
@@ -199,8 +200,8 @@ export async function CandidatePortfolio({
         <PortfolioEditor kind="contact" title="Edit profile" label="Edit Profile" fields={contactFields} primary />
       </header>
 
-      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,31%)] lg:grid-rows-[auto_1fr]">
-        <aside aria-label="Profile progress" className="min-w-0 space-y-5 lg:col-start-2 lg:row-start-1">
+      <PortfolioSections
+        completion={
           <Card className="bg-white">
             <SectionHeading>Profile Completion</SectionHeading>
             <div className="mt-4 flex items-center gap-3">
@@ -229,198 +230,236 @@ export async function CandidatePortfolio({
               <Link href="/profile?section=edit" className={link}>Review application requirements</Link>
             </div>
           </Card>
-
-        </aside>
-
-        <div className="min-w-0 space-y-5 lg:col-start-1 lg:row-span-2 lg:row-start-1">
-          <Card className="bg-white">
-            <SectionHeading action={<PortfolioEditor kind="contact" title="Edit personal information" label="Edit" fields={contactFields} />}>
-              Personal Information
-            </SectionHeading>
-            <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
-              <DisplayField label="Full name" value={user.name} />
-              <DisplayField label="Email address" value={user.email} />
-              <DisplayField label="Phone number" value={profile?.phone} />
-              <DisplayField label="Location" value={location} />
-              {profile?.location && profile.physicalAddress && <DisplayField label="Physical address" value={profile.physicalAddress} />}
-              {profile?.birthMonth && profile.birthYear ? <DisplayField label="Birth month and year" value={`${BIRTH_MONTH_LABELS[profile.birthMonth - 1]} ${profile.birthYear}`} /> : null}
-              {profile?.languages && <DisplayField label="Languages" value={profile.languages} />}
-              {profile?.computerLiteracy && <DisplayField label="Computer literacy" value={COMPUTER_LITERACY_LABELS[profile.computerLiteracy]} />}
-            </dl>
-            <details className="mt-4">
-              <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-indigo-700 dark:text-indigo-300">Manage profile photo</summary>
-              <ProfilePhotoField
-                initial={profile?.photoPublicId ? { publicId: profile.photoPublicId, url: profile.photoUrl } : null}
-                savedPreview={photoSource}
-                maxBytes={maxUploadBytes}
-              />
-            </details>
-          </Card>
-
-          <Card className="bg-white">
-            <SectionHeading action={<PortfolioEditor kind="summary" title="Edit professional summary" label="Edit" fields={[
-              { name: "experienceSummary", label: "Professional summary", value: profile?.experienceSummary, maxLength: 2000, type: "textarea" },
-            ]} />}>Professional Summary</SectionHeading>
-            <p className={`mt-4 wrap-anywhere whitespace-pre-wrap ${muted}`}>
-              {profile?.experienceSummary || "Introduce yourself with a short summary of your background, qualifications, and career interests."}
-            </p>
-          </Card>
-
-          <Card className="bg-white">
-            <SectionHeading action={<PortfolioEditor kind="education" title="Add education" label="Add Education" fields={educationFields()} />}>Education</SectionHeading>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <p className={muted}>{educationLevel ? `Highest education level: ${educationLevel}` : "Highest education level not selected."}</p>
-              <PortfolioEditor kind="academic-level" title="Edit education level" label="Edit level" fields={[
-                { name: "educationLevel", label: "Highest education level", value: profile?.educationLevel,
-                  options: Object.entries(EDUCATION_LEVEL_LABELS).map(([value, label]) => ({ value, label })) },
-              ]} />
-            </div>
-            {education.length ? (
-              <ol className={timeline}>
-                {education.map((item) => (
-                  <RecordRow key={item.id} title={item.qualification} subtitle={item.institution}
-                    dates={dateRange(item.startDate, item.endDate)} actions={
-                      <>
-                        <PortfolioEditor kind="education" title="Edit education" label="Edit" id={item.id} fields={educationFields(item)} />
-                        <RemovePortfolioRecord kind="education" id={item.id} name={item.qualification} />
-                      </>
-                    }>
-                    {(item.fieldOfStudy || item.grade) && <p className={`mt-2 wrap-anywhere ${muted}`}>{[item.fieldOfStudy, item.grade && `Grade: ${item.grade}`].filter(Boolean).join(" · ")}</p>}
-                  </RecordRow>
-                ))}
-              </ol>
-            ) : <p className={`mt-3 ${muted}`}>Add qualifications and the institutions where you studied.</p>}
-          </Card>
-
-          <Card className="bg-white">
-            <SectionHeading action={<PortfolioEditor kind="employment" title="Add work experience" label="Add Experience" fields={employmentFields()} />}>Work Experience</SectionHeading>
-            {employment.length ? (
-              <ol className={timeline}>
-                {employment.map((item) => (
-                  <RecordRow key={item.id} title={item.jobTitle} subtitle={item.organization}
-                    dates={dateRange(item.startDate, item.endDate, item.current)} actions={
-                      <>
-                        <PortfolioEditor kind="employment" title="Edit work experience" label="Edit" id={item.id} fields={employmentFields(item)} />
-                        <RemovePortfolioRecord kind="employment" id={item.id} name={item.jobTitle} />
-                      </>
-                    }>
-                    {item.current && <div className="mt-2"><Badge tone="green">Current role</Badge></div>}
-                    {item.description && <p className={`mt-2 wrap-anywhere whitespace-pre-wrap ${muted}`}>{item.description}</p>}
-                  </RecordRow>
-                ))}
-              </ol>
-            ) : <p className={`mt-4 ${muted}`}>Add relevant employment, placements, or volunteer roles if you have them.</p>}
-          </Card>
-
-          <Card className="bg-white">
-            <SectionHeading action={<PortfolioEditor kind="skill" title="Add professional skill" label="Add Skill" fields={[
-              { name: "name", label: "Skill", maxLength: 80, required: true },
-            ]} />}>Professional Skills</SectionHeading>
-            {skills.length ? (
-              <ul className="mt-4 flex flex-wrap gap-2">
-                {skills.map((item) => (
-                  <li key={item.id} className="flex min-w-0 max-w-full items-center rounded-full bg-indigo-50 pl-3 text-sm font-medium text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200">
-                    <span className="min-w-0 wrap-anywhere">{item.name}</span>
-                    <RemovePortfolioRecord kind="skill" id={item.id} name={item.name} compact />
-                  </li>
-                ))}
-              </ul>
-            ) : <p className={`mt-4 ${muted}`}>Add skills relevant to the roles you’re interested in.</p>}
-          </Card>
-
-          <Card className="bg-white">
-            <SectionHeading action={<PortfolioEditor kind="certification" title="Add certification or licence" label="Add Certification" fields={certificationFields()} />}>
-              Professional Certifications
-            </SectionHeading>
-            {certifications.length ? (
-              <ol className={timeline}>
-                {certifications.map((item) => (
-                  <RecordRow key={item.id} title={item.name} subtitle={item.issuer} actions={
-                    <>
-                      <PortfolioEditor kind="certification" title="Edit certification or licence" label="Edit" id={item.id} fields={certificationFields(item)} />
-                      <RemovePortfolioRecord kind="certification" id={item.id} name={item.name} />
-                    </>
-                  }>
-                    <div className={`mt-2 space-y-1 wrap-anywhere ${muted}`}>
-                      {item.registrationNumber && <p>Registration or licence number: {item.registrationNumber}</p>}
-                      {item.issueDate && <p>Issued {portfolioDate.format(item.issueDate)}</p>}
-                      {item.expiryDate && <p>Expires {portfolioDate.format(item.expiryDate)}</p>}
-                    </div>
-                  </RecordRow>
-                ))}
-              </ol>
-            ) : <p className={`mt-4 ${muted}`}>Add relevant certifications, professional registrations, or practising licences if applicable.</p>}
-          </Card>
-        </div>
-        <aside aria-label="Profile documents and applications" className="min-w-0 space-y-5 lg:col-start-2 lg:row-start-2">
-          <Card className="bg-white">
-            <SectionHeading>Documents</SectionHeading>
-            {documents.length ? (
-              <ul className={`mt-2 ${ruled}`}>
-                {documents.map((document) => {
-                  const href = `/profile/documents/${encodeURIComponent(document.id)}`;
-                  return (
-                    <li key={document.id} className="py-3">
-                      <p className="wrap-anywhere text-sm font-semibold">{findProfileDocumentSpec(document.documentKey)?.label ?? document.originalFileName}</p>
-                      <p className="mt-1 wrap-anywhere text-xs text-slate-600 dark:text-zinc-400">
-                        {document.originalFileName} · {formatFileSize(document.fileSize)}
-                      </p>
-                      <p className="text-xs text-slate-600 dark:text-zinc-400">
-                        {document.mimeType === "application/pdf" ? "PDF" : document.mimeType.split("/").at(-1)?.toUpperCase()} · {formatDate(document.updatedAt)}
-                      </p>
-                      <div className="flex flex-wrap gap-x-3">
-                        <a href={href} className={link}>View</a>
-                        <a href={`${href}?download=1`} className={link}>Download</a>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : <p className={`mt-3 ${muted}`}>No profile documents uploaded yet.</p>}
-            {missing.length > 0 && <p className={`mt-2 ${muted}`}>Still needed: {missing.map(({ label }) => label).join(", ")}.</p>}
-            {profile ? (
-              <details className="mt-2">
-                <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-indigo-700 dark:text-indigo-300">Manage documents</summary>
-                <p className={muted}>PDF, JPEG or PNG, up to {formatFileSize(maxUploadBytes)} per file.</p>
-                <ul className={`mt-2 ${ruled}`}>
-                  {[...categorySpecs, ...additionalSpecs].map((spec) => {
-                    const file = documents.find(({ documentKey }) => documentKey === spec.key);
-                    return (
-                      <li key={spec.key}>
-                        <ProfileDocumentField
-                          document={spec}
-                          initial={file ? { id: file.id, documentKey: file.documentKey, originalFileName: file.originalFileName, mimeType: file.mimeType, fileSize: file.fileSize, url: null } : null}
-                          accept={DOCUMENT_ACCEPT_ATTRIBUTE}
-                          canUpload
-                          compact
-                        />
-                      </li>
-                    );
-                  })}
-                </ul>
-              </details>
-            ) : <p className={`mt-2 ${muted}`}>Save your personal information to enable uploads.</p>}
-          </Card>
-
-          <Card className="bg-white">
-            <SectionHeading>Application Summary</SectionHeading>
-            <dl className={`mt-2 ${ruled}`}>
-              {[
-                ["Total applications", counts.total],
-                ["Pending", counts.pending],
-                ["Shortlisted", counts.shortlisted],
-                ["Rejected", counts.rejected],
-              ].map(([label, value]) => (
-                <div key={label} className="flex justify-between gap-3 py-2 text-sm">
-                  <dt>{label}</dt>
-                  <dd className="font-semibold tabular-nums">{value}</dd>
+        }
+        sections={[
+          {
+            id: "personal",
+            label: "Personal information",
+            content: (
+              <Card className="bg-white">
+                <SectionHeading action={<PortfolioEditor kind="contact" title="Edit personal information" label="Edit" fields={contactFields} />}>
+                  Personal Information
+                </SectionHeading>
+                <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                  <DisplayField label="Full name" value={user.name} />
+                  <DisplayField label="Email address" value={user.email} />
+                  <DisplayField label="Phone number" value={profile?.phone} />
+                  <DisplayField label="Location" value={location} />
+                  {profile?.location && profile.physicalAddress && <DisplayField label="Physical address" value={profile.physicalAddress} />}
+                  {profile?.birthMonth && profile.birthYear ? <DisplayField label="Birth month and year" value={`${BIRTH_MONTH_LABELS[profile.birthMonth - 1]} ${profile.birthYear}`} /> : null}
+                  {profile?.languages && <DisplayField label="Languages" value={profile.languages} />}
+                  {profile?.computerLiteracy && <DisplayField label="Computer literacy" value={COMPUTER_LITERACY_LABELS[profile.computerLiteracy]} />}
+                </dl>
+                <details className="mt-4">
+                  <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-indigo-700 dark:text-indigo-300">Manage profile photo</summary>
+                  <ProfilePhotoField
+                    initial={profile?.photoPublicId ? { publicId: profile.photoPublicId, url: profile.photoUrl } : null}
+                    savedPreview={photoSource}
+                    maxBytes={maxUploadBytes}
+                  />
+                </details>
+              </Card>
+            ),
+          },
+          {
+            id: "summary",
+            label: "Professional summary",
+            content: (
+              <Card className="bg-white">
+                <SectionHeading action={<PortfolioEditor kind="summary" title="Edit professional summary" label="Edit" fields={[
+                  { name: "experienceSummary", label: "Professional summary", value: profile?.experienceSummary, maxLength: 2000, type: "textarea" },
+                ]} />}>Professional Summary</SectionHeading>
+                <p className={`mt-4 wrap-anywhere whitespace-pre-wrap ${muted}`}>
+                  {profile?.experienceSummary || "Introduce yourself with a short summary of your background, qualifications, and career interests."}
+                </p>
+              </Card>
+            ),
+          },
+          {
+            id: "education",
+            label: "Education",
+            content: (
+              <Card className="bg-white">
+                <SectionHeading action={<PortfolioEditor kind="education" title="Add education" label="Add Education" fields={educationFields()} />}>Education</SectionHeading>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className={muted}>{educationLevel ? `Highest education level: ${educationLevel}` : "Highest education level not selected."}</p>
+                  <PortfolioEditor kind="academic-level" title="Edit education level" label="Edit level" fields={[
+                    { name: "educationLevel", label: "Highest education level", value: profile?.educationLevel,
+                      options: Object.entries(EDUCATION_LEVEL_LABELS).map(([value, label]) => ({ value, label })) },
+                  ]} />
                 </div>
-              ))}
-            </dl>
-            <Link href="/profile?section=applications" className={link}>View All Applications →</Link>
-          </Card>
-        </aside>
-      </div>
+                {education.length ? (
+                  <ol className={timeline}>
+                    {education.map((item) => (
+                      <RecordRow key={item.id} title={item.qualification} subtitle={item.institution}
+                        dates={dateRange(item.startDate, item.endDate)} actions={
+                          <>
+                            <PortfolioEditor kind="education" title="Edit education" label="Edit" id={item.id} fields={educationFields(item)} />
+                            <RemovePortfolioRecord kind="education" id={item.id} name={item.qualification} />
+                          </>
+                        }>
+                        {(item.fieldOfStudy || item.grade) && <p className={`mt-2 wrap-anywhere ${muted}`}>{[item.fieldOfStudy, item.grade && `Grade: ${item.grade}`].filter(Boolean).join(" · ")}</p>}
+                      </RecordRow>
+                    ))}
+                  </ol>
+                ) : <p className={`mt-3 ${muted}`}>Add qualifications and the institutions where you studied.</p>}
+              </Card>
+            ),
+          },
+          {
+            id: "experience",
+            label: "Work experience",
+            content: (
+              <Card className="bg-white">
+                <SectionHeading action={<PortfolioEditor kind="employment" title="Add work experience" label="Add Experience" fields={employmentFields()} />}>Work Experience</SectionHeading>
+                {employment.length ? (
+                  <ol className={timeline}>
+                    {employment.map((item) => (
+                      <RecordRow key={item.id} title={item.jobTitle} subtitle={item.organization}
+                        dates={dateRange(item.startDate, item.endDate, item.current)} actions={
+                          <>
+                            <PortfolioEditor kind="employment" title="Edit work experience" label="Edit" id={item.id} fields={employmentFields(item)} />
+                            <RemovePortfolioRecord kind="employment" id={item.id} name={item.jobTitle} />
+                          </>
+                        }>
+                        {item.current && <div className="mt-2"><Badge tone="green">Current role</Badge></div>}
+                        {item.description && <p className={`mt-2 wrap-anywhere whitespace-pre-wrap ${muted}`}>{item.description}</p>}
+                      </RecordRow>
+                    ))}
+                  </ol>
+                ) : <p className={`mt-4 ${muted}`}>Add relevant employment, placements, or volunteer roles if you have them.</p>}
+              </Card>
+            ),
+          },
+          {
+            id: "skills",
+            label: "Professional skills",
+            content: (
+              <Card className="bg-white">
+                <SectionHeading action={<PortfolioEditor kind="skill" title="Add professional skill" label="Add Skill" fields={[
+                  { name: "name", label: "Skill", maxLength: 80, required: true },
+                ]} />}>Professional Skills</SectionHeading>
+                {skills.length ? (
+                  <ul className="mt-4 flex flex-wrap gap-2">
+                    {skills.map((item) => (
+                      <li key={item.id} className="flex min-w-0 max-w-full items-center rounded-full bg-indigo-50 pl-3 text-sm font-medium text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200">
+                        <span className="min-w-0 wrap-anywhere">{item.name}</span>
+                        <RemovePortfolioRecord kind="skill" id={item.id} name={item.name} compact />
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className={`mt-4 ${muted}`}>Add skills relevant to the roles you’re interested in.</p>}
+              </Card>
+            ),
+          },
+          {
+            id: "certifications",
+            label: "Certifications",
+            content: (
+              <Card className="bg-white">
+                <SectionHeading action={<PortfolioEditor kind="certification" title="Add certification or licence" label="Add Certification" fields={certificationFields()} />}>
+                  Professional Certifications
+                </SectionHeading>
+                {certifications.length ? (
+                  <ol className={timeline}>
+                    {certifications.map((item) => (
+                      <RecordRow key={item.id} title={item.name} subtitle={item.issuer} actions={
+                        <>
+                          <PortfolioEditor kind="certification" title="Edit certification or licence" label="Edit" id={item.id} fields={certificationFields(item)} />
+                          <RemovePortfolioRecord kind="certification" id={item.id} name={item.name} />
+                        </>
+                      }>
+                        <div className={`mt-2 space-y-1 wrap-anywhere ${muted}`}>
+                          {item.registrationNumber && <p>Registration or licence number: {item.registrationNumber}</p>}
+                          {item.issueDate && <p>Issued {portfolioDate.format(item.issueDate)}</p>}
+                          {item.expiryDate && <p>Expires {portfolioDate.format(item.expiryDate)}</p>}
+                        </div>
+                      </RecordRow>
+                    ))}
+                  </ol>
+                ) : <p className={`mt-4 ${muted}`}>Add relevant certifications, professional registrations, or practising licences if applicable.</p>}
+              </Card>
+            ),
+          },
+          {
+            id: "documents",
+            label: "Documents",
+            content: (
+              <Card className="bg-white">
+                <SectionHeading>Documents</SectionHeading>
+                {documents.length ? (
+                  <ul className={`mt-2 ${ruled}`}>
+                    {documents.map((document) => {
+                      const href = `/profile/documents/${encodeURIComponent(document.id)}`;
+                      return (
+                        <li key={document.id} className="py-3">
+                          <p className="wrap-anywhere text-sm font-semibold">{findProfileDocumentSpec(document.documentKey)?.label ?? document.originalFileName}</p>
+                          <p className="mt-1 wrap-anywhere text-xs text-slate-600 dark:text-zinc-400">
+                            {document.originalFileName} · {formatFileSize(document.fileSize)}
+                          </p>
+                          <p className="text-xs text-slate-600 dark:text-zinc-400">
+                            {document.mimeType === "application/pdf" ? "PDF" : document.mimeType.split("/").at(-1)?.toUpperCase()} · {formatDate(document.updatedAt)}
+                          </p>
+                          <div className="flex flex-wrap gap-x-3">
+                            <a href={href} className={link}>View</a>
+                            <a href={`${href}?download=1`} className={link}>Download</a>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : <p className={`mt-3 ${muted}`}>No profile documents uploaded yet.</p>}
+                {missing.length > 0 && <p className={`mt-2 ${muted}`}>Still needed: {missing.map(({ label }) => label).join(", ")}.</p>}
+                {profile ? (
+                  <details className="mt-2">
+                    <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-indigo-700 dark:text-indigo-300">Manage documents</summary>
+                    <p className={muted}>PDF, JPEG or PNG, up to {formatFileSize(maxUploadBytes)} per file.</p>
+                    <ul className={`mt-2 ${ruled}`}>
+                      {[...categorySpecs, ...additionalSpecs].map((spec) => {
+                        const file = documents.find(({ documentKey }) => documentKey === spec.key);
+                        return (
+                          <li key={spec.key}>
+                            <ProfileDocumentField
+                              document={spec}
+                              initial={file ? { id: file.id, documentKey: file.documentKey, originalFileName: file.originalFileName, mimeType: file.mimeType, fileSize: file.fileSize, url: null } : null}
+                              accept={DOCUMENT_ACCEPT_ATTRIBUTE}
+                              canUpload
+                              compact
+                            />
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </details>
+                ) : <p className={`mt-2 ${muted}`}>Save your personal information to enable uploads.</p>}
+              </Card>
+            ),
+          },
+          {
+            id: "applications",
+            label: "Application summary",
+            content: (
+              <Card className="bg-white">
+                <SectionHeading>Application Summary</SectionHeading>
+                <dl className={`mt-2 ${ruled}`}>
+                  {[
+                    ["Total applications", counts.total],
+                    ["Pending", counts.pending],
+                    ["Shortlisted", counts.shortlisted],
+                    ["Rejected", counts.rejected],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex justify-between gap-3 py-2 text-sm">
+                      <dt>{label}</dt>
+                      <dd className="font-semibold tabular-nums">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <Link href="/profile?section=applications" className={link}>View All Applications →</Link>
+              </Card>
+            ),
+          },
+        ]}
+      />
     </main>
   );
 }
