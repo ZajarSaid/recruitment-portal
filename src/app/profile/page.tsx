@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { Badge, Card } from "@/components/ui";
 import { requireUser } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
-import { humanizeStatus } from "@/lib/format";
+import { formatDate, humanizeStatus } from "@/lib/format";
 import {
   APPLICATION_PROFILE_THRESHOLD,
   getProfileReadiness,
@@ -15,7 +14,9 @@ import {
 } from "@/lib/profile";
 import { BIRTH_MONTH_LABELS, JOB_CATEGORY_LABELS } from "@/lib/profile-documents";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { ProfileLayout, profileSectionClassName } from "@/components/profile/profile-layout";
 import DashboardApplications from "@/components/dashboard/applications-section";
+import { ROLE_LABELS } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "My profile",
@@ -26,11 +27,57 @@ export default async function ProfilePage({
   searchParams,
 }: PageProps<"/profile">) {
   const user = await requireUser();
+  const params = await searchParams;
   if (user.role !== "CANDIDATE") {
-    redirect("/dashboard?error=forbidden");
+    const showAccount = params.section === "account";
+    return (
+      <main className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6 sm:px-6 sm:py-8">
+        <h1 className="text-2xl font-semibold tracking-tight">My profile</h1>
+        <ProfileLayout sections={
+          <ul className="grid gap-1 max-md:grid-cols-2">
+            <li>
+              <Link href="/profile" aria-current={showAccount ? undefined : "page"} className={profileSectionClassName}>
+                Overview
+              </Link>
+            </li>
+            <li>
+              <Link href="/profile?section=account" aria-current={showAccount ? "page" : undefined} className={profileSectionClassName}>
+                Account details
+              </Link>
+            </li>
+          </ul>
+        }>
+          {showAccount ? (
+            <Card>
+              <h2 className="text-xl font-semibold tracking-tight">Account details</h2>
+              <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-zinc-600 dark:text-zinc-400">Sign-in email</dt>
+                  <dd className="mt-1 wrap-anywhere font-medium">{user.email}</dd>
+                </div>
+                <div>
+                  <dt className="text-zinc-600 dark:text-zinc-400">Member since</dt>
+                  <dd className="mt-1 font-medium">{formatDate(user.createdAt)}</dd>
+                </div>
+              </dl>
+            </Card>
+          ) : (
+            <Card>
+              <h2 className="wrap-anywhere text-xl font-semibold tracking-tight">{user.name}</h2>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{ROLE_LABELS[user.role]}</p>
+              <Link
+                href={user.role === "ADMIN" ? "/admin" : "/recruiter/jobs"}
+                className="mt-4 inline-flex text-sm font-semibold text-indigo-700 hover:underline dark:text-indigo-300"
+              >
+                Open workspace
+              </Link>
+            </Card>
+          )}
+        </ProfileLayout>
+      </main>
+    );
   }
 
-  const params = await searchParams;
   const incompleteNotice = params.incomplete === "1";
   const nextPath =
     typeof params.next === "string" &&

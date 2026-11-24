@@ -15,6 +15,7 @@ import {
 import { SubmitButton } from "@/components/submit-button";
 import { Alert, Field, Select, TextArea, TextInput } from "@/components/ui";
 import { ProfilePhotoField } from "@/components/applications/profile-photo-field";
+import { ProfileLayout, profileSectionClassName } from "@/components/profile/profile-layout";
 import {
   ProfileDocumentField,
   type ProfileDocumentInfo,
@@ -163,20 +164,18 @@ export function ProfileForm({
 
   const showingOverview = selected === "profile-overview";
   const showingApplications = selected === "profile-applications";
-  const navButtonClass =
-    "min-h-11 rounded-lg px-3 py-2 text-left text-sm font-medium text-zinc-700 hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-indigo-600 aria-[current=true]:bg-indigo-100 aria-[current=true]:text-indigo-800 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:aria-[current=true]:bg-indigo-950 dark:aria-[current=true]:text-indigo-100";
 
   return (
-    <div className="min-w-0 space-y-5">
-      <nav aria-label="Profile sections" className="rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="flex flex-wrap gap-1">
+    <ProfileLayout sections={
+      <>
+        <div className="grid gap-1 max-md:grid-cols-2">
           <button
             type="button"
             aria-current={showingOverview ? "true" : undefined}
             aria-controls="profile-overview"
             disabled={saving}
             onClick={() => setSelected("profile-overview")}
-            className={navButtonClass}
+            className={profileSectionClassName}
           >
             Overview
           </button>
@@ -187,13 +186,13 @@ export function ProfileForm({
               aria-controls="profile-applications"
               disabled={saving}
               onClick={() => setSelected("profile-applications")}
-              className={navButtonClass}
+              className={profileSectionClassName}
             >
               My applications
             </button>
           )}
         </div>
-        <ol className="mt-2 flex flex-wrap gap-1 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+        <ol className="mt-2 grid gap-1 border-t border-zinc-200 pt-2 max-md:grid-cols-2 dark:border-zinc-800">
           {profileSections.map(({ id, label }, index) => (
             <li key={id} className="min-w-0">
               <button
@@ -202,15 +201,15 @@ export function ProfileForm({
                 aria-controls={`profile-section-${id}`}
                 disabled={saving || index > (stepIndex < 0 ? availableStep : stepIndex)}
                 onClick={() => setSelected(id)}
-                className={`${navButtonClass} disabled:cursor-not-allowed disabled:opacity-50 aria-[current=step]:bg-indigo-100 aria-[current=step]:text-indigo-800 dark:aria-[current=step]:bg-indigo-950 dark:aria-[current=step]:text-indigo-100`}
+                className={`${profileSectionClassName} disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {label}
               </button>
             </li>
           ))}
         </ol>
-      </nav>
-      <div className="min-w-0 space-y-5">
+      </>
+    }>
         {canApply && !showingApplications ? (
           <Alert tone="success">
             Your profile meets the application requirement.{" "}
@@ -527,7 +526,6 @@ export function ProfileForm({
             </SubmitButton>
           </div>
         </form>
-      </div>
-    </div>
+    </ProfileLayout>
   );
 }

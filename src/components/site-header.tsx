@@ -48,15 +48,15 @@ export async function SiteHeader() {
                 Manage jobs
               </Link>
             )}
+            {user && (
+              <Link href="/profile" className={navLinkClass}>
+                My profile
+              </Link>
+            )}
             {user?.role === "CANDIDATE" && (
-              <>
-                <Link href="/profile" className={navLinkClass}>
-                  My profile
-                </Link>
-                <Link href="/profile?section=applications" className={navLinkClass}>
-                  My applications
-                </Link>
-              </>
+              <Link href="/profile?section=applications" className={navLinkClass}>
+                My applications
+              </Link>
             )}
           </nav>
 
