@@ -77,12 +77,17 @@ it("opens on the overview and preserves edits when switching profile sections", 
     screen.queryByRole("textbox", { name: "Languages you speak" }),
   ).toBeNull();
 
-  fireEvent.click(nav.getByRole("button", { name: "Language proficiency" }));
+  expect(nav.getByRole<HTMLButtonElement>("button", { name: "Language proficiency" }).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
+  await screen.findByText("Step 3 of 5");
+  fireEvent.click(await screen.findByRole("button", { name: "Save and continue" }));
+  await screen.findByText("Step 4 of 5");
   expect(languages.value).toBe("Kiswahili (fluent), English");
 
-  fireEvent.submit(languages.form!);
-  await screen.findByRole("status");
-  const submitted = vi.mocked(saveProfileAction).mock.calls[0]?.[1];
+  fireEvent.click(await screen.findByRole("button", { name: "Save and continue" }));
+  await screen.findByText("Step 5 of 5");
+  const submitted = vi.mocked(saveProfileAction).mock.lastCall?.[1];
+  expect(submitted?.get("step")).toBe("languages");
   expect(submitted?.get("languages")).toBe("Kiswahili (fluent), English");
   expect(submitted?.get("educationLevel")).toBe("BACHELOR");
 });
@@ -102,6 +107,10 @@ it("starts a new profile at step one and only advances after a successful save",
   const { rerender } = render(<ProfileForm {...props} canApply={false} incompleteNotice />);
 
   expect(screen.getByText("Step 1 of 5")).toBeDefined();
+  const education = screen.getByRole<HTMLButtonElement>("button", { name: "Academic information & documents" });
+  expect(education.disabled).toBe(true);
+  fireEvent.click(education);
+  expect(screen.getByText("Step 1 of 5")).toBeDefined();
   expect(screen.queryByRole("link", { name: "Continue to your application" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
   await screen.findByText("Enter a valid address.");
@@ -109,6 +118,7 @@ it("starts a new profile at step one and only advances after a successful save",
 
   fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
   await screen.findByText("Step 2 of 5");
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: "Computer literacy" }).disabled).toBe(true);
   rerender(<ProfileForm {...props} canApply incompleteNotice={false} />);
   expect(screen.getByRole("link", { name: "Continue to your application" }).getAttribute("href"))
     .toBe("/jobs/job-1/apply");

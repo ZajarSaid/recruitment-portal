@@ -20,6 +20,7 @@ import {
   type ProfileDocumentInfo,
 } from "@/components/profile/profile-document-field";
 import { saveProfileAction } from "@/lib/actions/profile";
+import { firstIncompleteProfileStep, PROFILE_STEPS as profileSections } from "@/lib/profile-steps";
 import {
   DOCUMENT_ACCEPT_ATTRIBUTE,
   formatFileSize,
@@ -62,32 +63,6 @@ const sectionClassName = "space-y-5";
 const sectionHeadingClassName =
   "border-b border-indigo-100 pb-3 text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl dark:border-zinc-800 dark:text-zinc-50";
 
-const profileSections = [
-  {
-    id: "personal-details",
-    label: "Personal details",
-    fields: [
-      "birthYear",
-      "birthMonth",
-      "physicalAddress",
-      "photoUrl",
-      "photoPublicId",
-    ],
-  },
-  {
-    id: "education",
-    label: "Academic information & documents",
-    fields: ["educationLevel", "category"],
-  },
-  {
-    id: "computer-literacy",
-    label: "Computer literacy",
-    fields: ["computerLiteracy"],
-  },
-  { id: "languages", label: "Language proficiency", fields: ["languages"] },
-  { id: "experience", label: "Experience", fields: ["experienceSummary"] },
-];
-
 export function ProfileForm({
   initial,
   initialDocuments,
@@ -113,15 +88,19 @@ export function ProfileForm({
   applications?: ReactNode;
   showApplicationsInitially?: boolean;
 }) {
+  const availableStep = firstIncompleteProfileStep(initial, initialDocuments);
   const entryPanel = showApplicationsInitially
     ? "profile-applications"
     : redirectToApply ? profileSections[0].id : "profile-overview";
   const [selection, setSelection] = useState({
     entryPanel,
-    panel: !initial && !showApplicationsInitially ? profileSections[0].id : entryPanel,
+    panel: !showApplicationsInitially && (!initial || redirectToApply)
+      ? profileSections[availableStep].id
+      : entryPanel,
   });
   const selected =
-    selection.entryPanel === entryPanel ? selection.panel : entryPanel;
+    selection.entryPanel === entryPanel ? selection.panel
+      : entryPanel === profileSections[0].id ? profileSections[availableStep].id : entryPanel;
   function setSelected(panel: string) {
     setSelection({ entryPanel, panel });
   }
@@ -139,11 +118,7 @@ export function ProfileForm({
       data: FormData,
     ) => {
       const result = await saveProfileAction(previous, data);
-      const invalidSection = profileSections.find((section) =>
-        section.fields.some((field) => result?.errors?.[field]?.length),
-      );
-      if (invalidSection) setSelected(invalidSection.id);
-      else if (result?.ok && nextStep) setSelected(nextStep.id);
+      if (result?.ok && nextStep) setSelected(nextStep.id);
       return result;
     },
     undefined,
@@ -151,8 +126,9 @@ export function ProfileForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving || anyUploading) return;
+    if (saving || anyUploading || stepIndex < 0) return;
     const data = new FormData(event.currentTarget);
+    data.set("step", profileSections[stepIndex].id);
     startTransition(() => action(data));
   }
 
@@ -223,9 +199,9 @@ export function ProfileForm({
                   type="button"
                   aria-current={selected === id ? "step" : undefined}
                   aria-controls={`profile-section-${id}`}
-                  disabled={saving}
+                  disabled={saving || index > (stepIndex < 0 ? availableStep : stepIndex)}
                   onClick={() => setSelected(id)}
-                  className={`${navButtonClass} aria-[current=step]:bg-indigo-100 aria-[current=step]:text-indigo-800 dark:aria-[current=step]:bg-indigo-950 dark:aria-[current=step]:text-indigo-100`}
+                  className={`${navButtonClass} disabled:cursor-not-allowed disabled:opacity-50 aria-[current=step]:bg-indigo-100 aria-[current=step]:text-indigo-800 dark:aria-[current=step]:bg-indigo-950 dark:aria-[current=step]:text-indigo-100`}
                 >
                   <span aria-hidden="true">{index + 1}. </span>{label}
                 </button>
@@ -265,6 +241,7 @@ export function ProfileForm({
             <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
               Step {stepIndex + 1} of {profileSections.length}
             </p>
+            {nextStep && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">Complete this step and save to unlock the next one.</p>}
             <div aria-hidden="true" className="mt-2 flex gap-1">
               {profileSections.map(({ id }, index) => (
                 <span
@@ -303,6 +280,7 @@ export function ProfileForm({
                 <Select
                   id="birthYear"
                   name="birthYear"
+                  required
                   defaultValue={
                     initial?.birthYear ? String(initial.birthYear) : ""
                   }
@@ -324,6 +302,7 @@ export function ProfileForm({
                 <Select
                   id="birthMonth"
                   name="birthMonth"
+                  required
                   defaultValue={
                     initial?.birthMonth ? String(initial.birthMonth) : ""
                   }
@@ -346,6 +325,7 @@ export function ProfileForm({
               <TextArea
                 id="physicalAddress"
                 name="physicalAddress"
+                required
                 rows={2}
                 defaultValue={initial?.physicalAddress ?? ""}
 
@@ -371,6 +351,7 @@ export function ProfileForm({
               <Select
                 id="educationLevel"
                 name="educationLevel"
+                required
                 defaultValue={initial?.educationLevel ?? ""}
               >
                 <option value="">Select level…</option>
@@ -493,6 +474,7 @@ export function ProfileForm({
               <Select
                 id="computerLiteracy"
                 name="computerLiteracy"
+                required
                 defaultValue={initial?.computerLiteracy ?? ""}
               >
                 <option value="">Select level…</option>
@@ -519,6 +501,7 @@ export function ProfileForm({
               <TextInput
                 id="languages"
                 name="languages"
+                required
                 defaultValue={initial?.languages ?? ""}
 
                 placeholder="Kiswahili (fluent), English (intermediate)"

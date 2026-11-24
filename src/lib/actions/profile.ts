@@ -12,6 +12,12 @@ import { getCurrentUser } from "@/lib/dal";
 import { deleteStoredUpload, storeUploadedFile } from "@/lib/cloud-storage";
 import { validateUpload } from "@/lib/uploads";
 import { findProfileDocumentSpec } from "@/lib/profile-documents";
+import {
+  firstIncompleteProfileStep,
+  hasRequiredProfileDocuments,
+  missingStepFields,
+  PROFILE_STEPS,
+} from "@/lib/profile-steps";
 
 /**
  * Candidate master-profile server actions.
@@ -30,6 +36,14 @@ function formDataToObject(formData: FormData): Record<string, string> {
   return obj;
 }
 
+const stepSchemas = {
+  "personal-details": profileSchema.pick({ birthYear: true, birthMonth: true, physicalAddress: true }),
+  education: profileSchema.pick({ educationLevel: true, category: true }),
+  "computer-literacy": profileSchema.pick({ computerLiteracy: true }),
+  languages: profileSchema.pick({ languages: true }),
+  experience: profileSchema.pick({ experienceSummary: true }),
+};
+
 export async function saveProfileAction(
   _prev: ActionState,
   formData: FormData,
@@ -42,43 +56,38 @@ export async function saveProfileAction(
     return { message: "Only candidates have a candidate profile." };
   }
 
-  const parsed = profileSchema.safeParse(formDataToObject(formData));
+  const stepIndex = PROFILE_STEPS.findIndex(({ id }) => id === formData.get("step"));
+  const step = PROFILE_STEPS[stepIndex];
+  if (!step) return { message: "Choose a profile step before saving." };
+
+  const parsed = stepSchemas[step.id].safeParse(formDataToObject(formData));
   if (!parsed.success) {
     return { errors: toFieldErrors(parsed.error) };
   }
 
-  const data = parsed.data;
+  const fields = missingStepFields(step, parsed.data);
+  if (Object.keys(fields).length) return { errors: fields };
 
   try {
+    const profile = await prisma.candidateProfile.findUnique({
+      where: { userId: user.id },
+      include: { documents: { select: { documentKey: true } } },
+    });
+    const documents = profile?.documents ?? [];
+    if (stepIndex > firstIncompleteProfileStep(profile, documents)) {
+      return { message: "Complete and save the earlier profile steps first." };
+    }
+    if ("category" in parsed.data && !hasRequiredProfileDocuments(parsed.data.category, documents)) {
+      return { message: "Upload all required documents for this category before continuing." };
+    }
+    const values = parsed.data;
+    const data = "experienceSummary" in values && values.experienceSummary !== undefined
+      ? { experienceSummary: values.experienceSummary || null }
+      : values;
     await prisma.candidateProfile.upsert({
       where: { userId: user.id },
-      create: {
-        userId: user.id,
-        educationLevel: data.educationLevel,
-        experienceSummary: data.experienceSummary || null,
-        birthYear: data.birthYear,
-        birthMonth: data.birthMonth,
-        physicalAddress: data.physicalAddress,
-        computerLiteracy: data.computerLiteracy,
-        languages: data.languages,
-        category: data.category,
-        photoUrl: data.photoUrl || null,
-        photoPublicId: data.photoPublicId || null,
-      },
-      update: {
-        educationLevel: data.educationLevel,
-        ...(data.experienceSummary !== undefined && {
-          experienceSummary: data.experienceSummary || null,
-        }),
-        birthYear: data.birthYear,
-        birthMonth: data.birthMonth,
-        physicalAddress: data.physicalAddress,
-        computerLiteracy: data.computerLiteracy,
-        languages: data.languages,
-        category: data.category,
-        ...(data.photoUrl !== undefined && { photoUrl: data.photoUrl || null }),
-        ...(data.photoPublicId !== undefined && { photoPublicId: data.photoPublicId || null }),
-      },
+      create: { userId: user.id, ...data },
+      update: data,
     });
   } catch {
     return { message: "Could not save your profile. Please try again." };

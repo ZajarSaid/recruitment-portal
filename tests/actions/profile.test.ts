@@ -11,15 +11,7 @@ it("saves, preserves, and clears an optional experience summary", async () => {
   const user = await createTestUser();
   const profile = await createTestProfile({ userId: user.id });
   await createSession({ userId: user.id, role: user.role });
-  const fields = {
-    educationLevel: profile.educationLevel ?? "",
-    birthYear: String(profile.birthYear),
-    birthMonth: String(profile.birthMonth),
-    physicalAddress: profile.physicalAddress ?? "",
-    computerLiteracy: profile.computerLiteracy ?? "",
-    languages: profile.languages ?? "",
-    category: profile.category,
-  };
+  const fields = { step: "experience" };
   const savedExperience = async () => (
     await prisma.candidateProfile.findUniqueOrThrow({ where: { id: profile.id } })
   ).experienceSummary;
@@ -40,6 +32,37 @@ it("saves, preserves, and clears an optional experience summary", async () => {
       experienceSummary: "",
     }))).toMatchObject({ ok: true });
     expect(await savedExperience()).toBeNull();
+  } finally {
+    resetCookies();
+  }
+});
+
+it("rejects blank and out-of-order steps and persists only the current step", async () => {
+  resetCookies();
+  const user = await createTestUser();
+  await createSession({ userId: user.id, role: user.role });
+
+  try {
+    const save = (fields: Record<string, string>) => saveProfileAction(undefined, formData(fields));
+    expect(await save({ step: "languages", languages: "English" })).toMatchObject({
+      message: "Complete and save the earlier profile steps first.",
+    });
+    expect(await save({ step: "personal-details", birthYear: "", birthMonth: "", physicalAddress: "" }))
+      .toMatchObject({ errors: { birthYear: expect.any(Array), physicalAddress: expect.any(Array) } });
+    expect(await save({
+      step: "personal-details", birthYear: "1995", birthMonth: "6",
+      physicalAddress: "Example address", languages: "English",
+    })).toMatchObject({ ok: true });
+    expect(await prisma.candidateProfile.findUniqueOrThrow({ where: { userId: user.id } }))
+      .toMatchObject({ birthYear: 1995, languages: null });
+
+    expect(await save({ step: "education", educationLevel: "BACHELOR", category: "MEDICINE" }))
+      .toMatchObject({ message: "Upload all required documents for this category before continuing." });
+    expect(await save({ step: "education", educationLevel: "BACHELOR", category: "GENERAL" }))
+      .toMatchObject({ ok: true });
+    expect(await save({ step: "computer-literacy", computerLiteracy: "BASIC" }))
+      .toMatchObject({ ok: true });
+    expect(await save({ step: "languages", languages: "English" })).toMatchObject({ ok: true });
   } finally {
     resetCookies();
   }
