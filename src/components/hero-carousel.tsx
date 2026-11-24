@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const slides = [
   { src: "/c1.jpg", alt: "Zango Referral Hospital healthcare professionals" },
@@ -11,6 +11,26 @@ const slides = [
 
 export function HeroCarousel() {
   const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState(true);
+
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    function updatePlayback() {
+      setPlaying(!preference.matches);
+    }
+
+    updatePlayback();
+    preference.addEventListener("change", updatePlayback);
+    return () => preference.removeEventListener("change", updatePlayback);
+  }, []);
+
+  useEffect(() => {
+    if (!playing) return;
+    const timer = window.setTimeout(() => {
+      setIndex((current) => (current + 1) % slides.length);
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [index, playing]);
 
   return (
     <div
@@ -36,6 +56,16 @@ export function HeroCarousel() {
         ))}
       </div>
       <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 rounded-full bg-black/65 px-1">
+        <button
+          type="button"
+          onClick={() => setPlaying(!playing)}
+          className="grid size-11 place-items-center rounded-full text-white focus-visible:outline-white"
+          aria-label={playing ? "Pause slideshow" : "Play slideshow"}
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="size-5">
+            <path d={playing ? "M8 5h3v14H8zm5 0h3v14h-3z" : "M8 5v14l11-7z"} />
+          </svg>
+        </button>
         {slides.map((slide, i) => (
           <button
             key={slide.src}
