@@ -13,7 +13,7 @@ import {
   isLocalProfilePhoto,
   missingRequiredProfileDocuments,
 } from "@/lib/profile";
-import { JOB_CATEGORY_LABELS } from "@/lib/profile-documents";
+import { BIRTH_MONTH_LABELS, JOB_CATEGORY_LABELS } from "@/lib/profile-documents";
 import { ProfileForm } from "@/components/profile/profile-form";
 import DashboardApplications from "@/components/dashboard/applications-section";
 
@@ -76,48 +76,57 @@ export default async function ProfilePage({
   }));
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-      <header className="mb-5 grid items-center gap-4 rounded-2xl border border-indigo-100 bg-white/90 p-4 shadow-sm shadow-indigo-950/5 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,32%)] sm:px-6 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="flex min-w-0 items-center gap-3">
-          {photoSource ? (
-            // eslint-disable-next-line @next/next/no-img-element -- Profiles use uploaded photo URLs.
-            <img
-              src={photoSource}
-              alt=""
-              width={64}
-              height={64}
-              className="size-14 shrink-0 rounded-full object-cover ring-1 ring-indigo-100 sm:size-16 dark:ring-zinc-700"
-            />
-          ) : (
-            <span
-              aria-hidden="true"
-              className="grid size-14 shrink-0 place-items-center rounded-full bg-indigo-100 text-lg font-semibold text-indigo-800 sm:size-16 dark:bg-indigo-950 dark:text-indigo-200"
-            >
-              {initials}
-            </span>
-          )}
-          <div className="min-w-0">
-            <h1 className="wrap-anywhere text-xl font-semibold tracking-tight text-zinc-950 sm:text-2xl dark:text-zinc-50">
-              {user.name}
-            </h1>
-            <p className="wrap-anywhere text-sm text-zinc-600 dark:text-zinc-400">
-              {user.email}
-            </p>
+    <main className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6 sm:px-6 sm:py-8">
+      <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+        My profile
+      </h1>
+      <header className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <div aria-hidden="true" className="h-2 bg-indigo-600 dark:bg-indigo-400" />
+        <div className="grid items-center gap-5 p-5 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,30%)] sm:p-6">
+          <div className="flex min-w-0 items-center gap-4">
+            {photoSource ? (
+              // eslint-disable-next-line @next/next/no-img-element -- Profiles use uploaded photo URLs.
+              <img
+                src={photoSource}
+                alt=""
+                width={64}
+                height={64}
+                className="size-14 shrink-0 rounded-full object-cover ring-1 ring-indigo-100 sm:size-16 dark:ring-zinc-700"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="grid size-14 shrink-0 place-items-center rounded-full bg-indigo-100 text-lg font-semibold text-indigo-800 sm:size-16 dark:bg-indigo-950 dark:text-indigo-200"
+              >
+                {initials}
+              </span>
+            )}
+            <div className="min-w-0">
+              <p className="wrap-anywhere text-xl font-semibold tracking-tight text-zinc-950 sm:text-2xl dark:text-zinc-50">
+                {user.name}
+              </p>
+              <p className="wrap-anywhere text-sm text-zinc-600 dark:text-zinc-400">
+                {user.email}
+              </p>
+              <p className="mt-1 text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                {profile ? JOB_CATEGORY_LABELS[profile.category] : "Candidate"}
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="border-t border-indigo-100 pt-3 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5 dark:border-zinc-800">
-          <label
-            htmlFor="profile-progress"
-            className="block text-sm font-semibold text-zinc-950 dark:text-zinc-50"
-          >
-            {percentage}% complete
-          </label>
-          <progress
-            id="profile-progress"
-            value={percentage}
-            max={100}
-            className="mt-2 block h-2.5 w-full appearance-none overflow-hidden rounded-full bg-indigo-100 [&::-webkit-progress-bar]:bg-indigo-100 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-indigo-600 [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-indigo-600 dark:bg-indigo-950 dark:[&::-webkit-progress-bar]:bg-indigo-950 dark:[&::-webkit-progress-value]:bg-indigo-400 dark:[&::-moz-progress-bar]:bg-indigo-400"
-          />
+          <div className="border-t border-indigo-100 pt-3 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5 dark:border-zinc-800">
+            <label
+              htmlFor="profile-progress"
+              className="block text-sm font-semibold text-zinc-950 dark:text-zinc-50"
+            >
+              {percentage}% complete
+            </label>
+            <progress
+              id="profile-progress"
+              value={percentage}
+              max={100}
+              className="mt-2 block h-2.5 w-full appearance-none overflow-hidden rounded-full bg-indigo-100 [&::-webkit-progress-bar]:bg-indigo-100 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-indigo-600 [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-indigo-600 dark:bg-indigo-950 dark:[&::-webkit-progress-bar]:bg-indigo-950 dark:[&::-webkit-progress-value]:bg-indigo-400 dark:[&::-moz-progress-bar]:bg-indigo-400"
+            />
+          </div>
         </div>
       </header>
 
@@ -153,10 +162,26 @@ export default async function ProfilePage({
               <h2 className="text-xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
                 Profile overview
               </h2>
-              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                {profile ? JOB_CATEGORY_LABELS[profile.category] : "Candidate"}
-              </p>
             </div>
+            <Card>
+              <h3 className="text-lg font-semibold tracking-tight">Personal details</h3>
+              <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-zinc-600 dark:text-zinc-400">Birth month and year</dt>
+                  <dd className="mt-1 font-medium">
+                    {profile?.birthMonth && profile.birthYear
+                      ? `${BIRTH_MONTH_LABELS[profile.birthMonth - 1]} ${profile.birthYear}`
+                      : "Not provided"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-zinc-600 dark:text-zinc-400">Physical address</dt>
+                  <dd className="mt-1 wrap-anywhere font-medium">
+                    {profile?.physicalAddress || "Not provided"}
+                  </dd>
+                </div>
+              </dl>
+            </Card>
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
                 <h3 className="text-lg font-semibold tracking-tight">
@@ -236,25 +261,6 @@ export default async function ProfilePage({
               </Card>
             </div>
 
-            <Card>
-              <h3 className="text-lg font-semibold tracking-tight">
-                Profile tips
-              </h3>
-              <ul className="mt-3 list-disc space-y-2 pl-4 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-                <li>
-                  Include relevant internships, volunteering, and projects in
-                  your experience.
-                </li>
-                <li>
-                  Choose the professional category that matches your
-                  qualifications.
-                </li>
-                <li>
-                  Check that your certificates are legible and licenses are
-                  current.
-                </li>
-              </ul>
-            </Card>
           </div>
         }
       />

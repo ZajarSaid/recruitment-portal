@@ -39,6 +39,7 @@ describe("LoginForm", () => {
     expect(screen.getByLabelText("Password")).toBeDefined();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeDefined();
     expect(screen.getByRole("link", { name: "Forgot password?" })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Resend activation email" })).toBeNull();
   });
 
   it("forwards the next path as a hidden field so the return journey works", () => {
@@ -50,15 +51,16 @@ describe("LoginForm", () => {
     expect(hidden?.value).toBe("/jobs");
   });
 
-  it("submits the resend intent and shows activation delivery feedback", async () => {
-    loginActionMock.mockResolvedValue({ ok: true, message: "Activation email sent." });
-    renderWithFeedback();
+  it("toggles password visibility with the eye button", () => {
+    render(<LoginForm />);
 
-    const button = screen.getByRole<HTMLButtonElement>("button", { name: "Resend activation email" });
-    fireEvent(button.form!, new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: button }));
-
-    expect((await screen.findByRole("status")).textContent).toContain("Activation email sent.");
-    expect(loginActionMock.mock.calls[0][1].get("intent")).toBe("resend-activation");
+    const password = screen.getByLabelText<HTMLInputElement>("Password");
+    expect(password.type).toBe("password");
+    fireEvent.click(screen.getByRole("button", { name: "Show password" }));
+    expect(password.type).toBe("text");
+    fireEvent.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(password.type).toBe("password");
+    expect(loginActionMock).not.toHaveBeenCalled();
   });
 
   it("surfaces a message returned by the server action", async () => {

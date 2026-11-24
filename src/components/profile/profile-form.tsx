@@ -58,10 +58,10 @@ const YEAR_OPTIONS = Array.from(
   (_, index) => MAX_YEAR - index,
 );
 
-const sectionClassName = "space-y-5";
+const sectionClassName = "space-y-5 p-5 sm:p-6";
 
 const sectionHeadingClassName =
-  "border-b border-indigo-100 pb-3 text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl dark:border-zinc-800 dark:text-zinc-50";
+  "text-xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50";
 
 export function ProfileForm({
   initial,
@@ -164,12 +164,12 @@ export function ProfileForm({
   const showingOverview = selected === "profile-overview";
   const showingApplications = selected === "profile-applications";
   const navButtonClass =
-    "w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-zinc-700 hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-indigo-600 aria-[current=true]:bg-indigo-100 aria-[current=true]:text-indigo-800 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:aria-[current=true]:bg-indigo-950 dark:aria-[current=true]:text-indigo-100";
+    "min-h-11 rounded-lg px-3 py-2 text-left text-sm font-medium text-zinc-700 hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-indigo-600 aria-[current=true]:bg-indigo-100 aria-[current=true]:text-indigo-800 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:aria-[current=true]:bg-indigo-950 dark:aria-[current=true]:text-indigo-100";
 
   return (
-    <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[16rem_minmax(0,1fr)]">
-      <aside className="min-w-0 rounded-2xl border border-indigo-100 bg-white p-2 shadow-sm shadow-indigo-950/5 dark:border-zinc-800 dark:bg-zinc-950 lg:sticky lg:top-24">
-        <nav aria-label="Profile sections">
+    <div className="min-w-0 space-y-5">
+      <nav aria-label="Profile sections" className="rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex flex-wrap gap-1">
           <button
             type="button"
             aria-current={showingOverview ? "true" : undefined}
@@ -192,24 +192,24 @@ export function ProfileForm({
               My applications
             </button>
           )}
-          <ol className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1">
-            {profileSections.map(({ id, label }, index) => (
-              <li key={id} className="min-w-0">
-                <button
-                  type="button"
-                  aria-current={selected === id ? "step" : undefined}
-                  aria-controls={`profile-section-${id}`}
-                  disabled={saving || index > (stepIndex < 0 ? availableStep : stepIndex)}
-                  onClick={() => setSelected(id)}
-                  className={`${navButtonClass} disabled:cursor-not-allowed disabled:opacity-50 aria-[current=step]:bg-indigo-100 aria-[current=step]:text-indigo-800 dark:aria-[current=step]:bg-indigo-950 dark:aria-[current=step]:text-indigo-100`}
-                >
-                  <span aria-hidden="true">{index + 1}. </span>{label}
-                </button>
-              </li>
-            ))}
-          </ol>
-        </nav>
-      </aside>
+        </div>
+        <ol className="mt-2 flex flex-wrap gap-1 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+          {profileSections.map(({ id, label }, index) => (
+            <li key={id} className="min-w-0">
+              <button
+                type="button"
+                aria-current={selected === id ? "step" : undefined}
+                aria-controls={`profile-section-${id}`}
+                disabled={saving || index > (stepIndex < 0 ? availableStep : stepIndex)}
+                onClick={() => setSelected(id)}
+                className={`${navButtonClass} disabled:cursor-not-allowed disabled:opacity-50 aria-[current=step]:bg-indigo-100 aria-[current=step]:text-indigo-800 dark:aria-[current=step]:bg-indigo-950 dark:aria-[current=step]:text-indigo-100`}
+              >
+                {label}
+              </button>
+            </li>
+          ))}
+        </ol>
+      </nav>
       <div className="min-w-0 space-y-5">
         {canApply && !showingApplications ? (
           <Alert tone="success">
@@ -234,10 +234,10 @@ export function ProfileForm({
         <form
           onSubmit={handleSubmit}
           hidden={showingOverview || showingApplications}
-          className="min-w-0 space-y-5 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-950/5 sm:p-6 dark:border-zinc-800 dark:bg-zinc-950"
+          className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
           noValidate
         >
-          <div ref={stepIndicator} tabIndex={-1} className="scroll-mt-24">
+          <div ref={stepIndicator} tabIndex={-1} className="scroll-mt-24 border-b border-zinc-200 bg-zinc-50 px-5 py-4 sm:px-6 dark:border-zinc-800 dark:bg-zinc-900">
             <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
               Step {stepIndex + 1} of {profileSections.length}
             </p>
@@ -343,48 +343,50 @@ export function ProfileForm({
               Academic information &amp; documents
             </h2>
 
-            <Field
-              label="Highest education level"
-              htmlFor="educationLevel"
-              error={state?.errors?.educationLevel}
-            >
-              <Select
-                id="educationLevel"
-                name="educationLevel"
-                required
-                defaultValue={initial?.educationLevel ?? ""}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Highest education level"
+                htmlFor="educationLevel"
+                error={state?.errors?.educationLevel}
               >
-                <option value="">Select level…</option>
-                {EDUCATION_LEVELS.map((level) => (
-                  <option key={level} value={level}>
-                    {EDUCATION_LEVEL_LABELS[level]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field
-              label="Professional category"
-              htmlFor="category"
-              error={state?.errors?.category}
-              hint="This determines which supporting documents your profile asks for."
-            >
-              <Select
-                id="category"
-                name="category"
-                value={category}
-                onChange={(event) =>
-                  setCategory(event.target.value as JobCategoryValue)
-                }
+                <Select
+                  id="educationLevel"
+                  name="educationLevel"
+                  required
+                  defaultValue={initial?.educationLevel ?? ""}
+                >
+                  <option value="">Select level…</option>
+                  {EDUCATION_LEVELS.map((level) => (
+                    <option key={level} value={level}>
+                      {EDUCATION_LEVEL_LABELS[level]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field
+                label="Professional category"
+                htmlFor="category"
+                error={state?.errors?.category}
+                hint="This determines which supporting documents your profile asks for."
               >
-                {JOB_CATEGORIES.map((value) => (
-                  <option key={value} value={value}>
-                    {JOB_CATEGORY_LABELS[value]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+                <Select
+                  id="category"
+                  name="category"
+                  value={category}
+                  onChange={(event) =>
+                    setCategory(event.target.value as JobCategoryValue)
+                  }
+                >
+                  {JOB_CATEGORIES.map((value) => (
+                    <option key={value} value={value}>
+                      {JOB_CATEGORY_LABELS[value]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 border-t border-zinc-200 pt-5 dark:border-zinc-800">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-base font-semibold text-zinc-950 dark:text-zinc-50">
                   Supporting documents
@@ -509,7 +511,7 @@ export function ProfileForm({
             </Field>
           </section>
 
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-indigo-100 pt-4 dark:border-zinc-800">
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:px-6 dark:border-zinc-800 dark:bg-zinc-900">
             {stepIndex > 0 && (
               <button
                 type="button"

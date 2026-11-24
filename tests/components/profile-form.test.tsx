@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
 import { ProfileForm } from "@/components/profile/profile-form";
@@ -122,6 +122,8 @@ it("starts a new profile at step one and only advances after a successful save",
   rerender(<ProfileForm {...props} canApply incompleteNotice={false} />);
   expect(screen.getByRole("link", { name: "Continue to your application" }).getAttribute("href"))
     .toBe("/jobs/job-1/apply");
-  fireEvent.click(screen.getByRole("button", { name: "Back" }));
+  const back = screen.getByRole<HTMLButtonElement>("button", { name: "Back" });
+  await waitFor(() => expect(back.disabled).toBe(false));
+  fireEvent.click(back);
   expect(screen.getByText("Step 1 of 5")).toBeDefined();
 });
