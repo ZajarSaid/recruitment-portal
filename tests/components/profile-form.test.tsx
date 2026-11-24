@@ -13,7 +13,7 @@ vi.mock("@/components/applications/profile-photo-field", () => ({
   ProfilePhotoField: () => null,
 }));
 
-it("opens on the overview and preserves edits when switching profile sections", async () => {
+it("opens the requested edit section and preserves edits when switching sections", async () => {
   vi.mocked(saveProfileAction).mockResolvedValue({
     ok: true,
     message: "Profile saved.",
@@ -38,24 +38,14 @@ it("opens on the overview and preserves edits when switching profile sections", 
       canApply={false}
       applicationThreshold={60}
       incompleteNotice={false}
-      overview={<h2>Profile overview</h2>}
-      applications={<h2>My applications</h2>}
+      initialSection="languages"
     />,
   );
 
   const nav = within(
     screen.getByRole("navigation", { name: "Profile sections" }),
   );
-  expect(
-    screen.getByRole("heading", { name: "Profile overview" }),
-  ).toBeDefined();
-  expect(screen.queryByRole("button", { name: "Save profile" })).toBeNull();
-  fireEvent.click(nav.getByRole("button", { name: "My applications" }));
-  expect(screen.getByRole("heading", { name: "My applications" })).toBeDefined();
-  expect(screen.queryByRole("heading", { name: "Profile overview" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Save profile" })).toBeNull();
-
-  fireEvent.click(nav.getByRole("button", { name: "Language proficiency" }));
+  expect(screen.getByRole("heading", { name: "Language proficiency" })).toBeDefined();
   const languages = screen.getByRole<HTMLInputElement>("textbox", {
     name: "Languages you speak",
   });
@@ -102,7 +92,6 @@ it("starts a new profile at step one and only advances after a successful save",
     maxBytes: 1024,
     redirectToApply: "/jobs/job-1/apply",
     applicationThreshold: 60,
-    overview: <h2>Profile overview</h2>,
   };
   const { rerender } = render(<ProfileForm {...props} canApply={false} incompleteNotice />);
 

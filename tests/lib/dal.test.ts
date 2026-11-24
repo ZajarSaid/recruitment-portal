@@ -116,6 +116,22 @@ async function encryptAdminToken(userId: string): Promise<string> {
 }
 
 describe("session helpers", () => {
+  it("rejects a second browser until the first browser signs out", async () => {
+    const user = await createTestUser({ role: "CANDIDATE" });
+    const payload = { userId: user.id, role: "CANDIDATE" as const };
+    expect(await createSession(payload)).toBe("created");
+    const firstCookie = getCookie(SESSION_COOKIE_NAME)!;
+
+    resetCookies();
+    expect(await createSession(payload)).toBe("in-use");
+    expect(getCookie(SESSION_COOKIE_NAME)).toBeUndefined();
+
+    setCookie(SESSION_COOKIE_NAME, firstCookie);
+    expect(await getSession()).not.toBeNull();
+    await deleteSession();
+    expect(await createSession(payload)).toBe("created");
+  });
+
   it.each([
     ["CANDIDATE", 30],
     ["RECRUITER", 15],

@@ -99,6 +99,9 @@ model CandidateProfile {
   birthYear        Int?
   birthMonth       Int?
   physicalAddress  String?                @db.VarChar(500)
+  phone            String?                @db.VarChar(40)
+  location         String?                @db.VarChar(160)
+  headline         String?                @db.VarChar(160)
   computerLiteracy ComputerLiteracyLevel?
   // Comma-separated list of languages the candidate speaks.
   languages        String?                @db.VarChar(500)
@@ -114,13 +117,67 @@ model CandidateProfile {
 
   user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents CandidateDocument[]
+  education CandidateEducation[]
+  employment CandidateEmployment[]
+  skills CandidateSkill[]
+  certifications CandidateCertification[]
 
   @@index([category])
 }
 
+model CandidateEducation {
+  id            String @id @default(cuid())
+  profileId     String
+  qualification String @db.VarChar(160)
+  institution   String @db.VarChar(160)
+  fieldOfStudy  String? @db.VarChar(160)
+  startDate     DateTime? @db.Date
+  endDate       DateTime? @db.Date
+  grade         String? @db.VarChar(40)
+  profile       CandidateProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, startDate])
+}
+
+model CandidateEmployment {
+  id           String @id @default(cuid())
+  profileId    String
+  jobTitle     String @db.VarChar(160)
+  organization String @db.VarChar(160)
+  startDate    DateTime @db.Date
+  endDate      DateTime? @db.Date
+  current      Boolean @default(false)
+  description  String? @db.Text
+  profile      CandidateProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, startDate])
+}
+
+model CandidateSkill {
+  id        String @id @default(cuid())
+  profileId String
+  name      String @db.VarChar(80)
+  profile   CandidateProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, name])
+}
+
+model CandidateCertification {
+  id                 String @id @default(cuid())
+  profileId          String
+  name               String @db.VarChar(160)
+  issuer             String @db.VarChar(160)
+  registrationNumber String? @db.VarChar(120)
+  issueDate          DateTime? @db.Date
+  expiryDate         DateTime? @db.Date
+  profile            CandidateProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, issueDate])
+}
+
 model UserSession {
   tokenHash  String   @id @db.Char(64)
-  userId     String
+  userId     String   @unique
   lastSeenAt DateTime
   expiresAt  DateTime
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)

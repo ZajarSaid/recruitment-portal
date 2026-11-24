@@ -249,7 +249,7 @@ describe("applying with the application letter", () => {
 
     signIn(candidate);
     const state = await applyToJobAction(undefined, applyForm(job.id));
-    expect(state?.message).toMatch(/complete your profile/i);
+    expect(state?.message).toMatch(/your profile is \d+% complete.*to apply/i);
 
     const app = await prisma.application.findUnique({
       where: { candidateId_jobId: { candidateId: candidate.id, jobId: job.id } },

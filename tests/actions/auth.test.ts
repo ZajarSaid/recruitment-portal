@@ -288,8 +288,6 @@ describe("login", () => {
     // is then sent to the profile page instead of the dashboard.
     expect(openRedirect).toBe("/profile");
 
-    resetCookies();
-
     const safeRedirect = await expectRedirect(
       loginAction(
         undefined,

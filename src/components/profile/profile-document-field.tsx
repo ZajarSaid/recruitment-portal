@@ -29,12 +29,14 @@ export function ProfileDocumentField({
   accept,
   canUpload,
   onChange,
+  compact = false,
 }: {
   document: CategoryDocumentSpec;
   initial: ProfileDocumentInfo | null;
   accept: string;
   canUpload: boolean;
-  onChange: (
+  compact?: boolean;
+  onChange?: (
     documentKey: string,
     document: ProfileDocumentInfo | null,
     uploading: boolean,
@@ -53,7 +55,7 @@ export function ProfileDocumentField({
     formData.set("file", file);
 
     setStatus("uploading");
-    onChange(spec.key, document, true);
+    onChange?.(spec.key, document, true);
 
     startTransition(async () => {
       const result = await uploadProfileDocumentAction(
@@ -64,14 +66,14 @@ export function ProfileDocumentField({
         setDocument(result.document);
         setStatus("idle");
         notifyAction("Uploaded.", true);
-        onChange(spec.key, result.document, false);
+        onChange?.(spec.key, result.document, false);
       } else {
         setStatus("idle");
         notifyAction(
           result?.message ?? "Upload failed. Please try again.",
           false,
         );
-        onChange(spec.key, document, false);
+        onChange?.(spec.key, document, false);
       }
     });
   }
@@ -81,7 +83,7 @@ export function ProfileDocumentField({
     formData.set("documentKey", spec.key);
 
     setStatus("removing");
-    onChange(spec.key, document, true);
+    onChange?.(spec.key, document, true);
 
     startTransition(async () => {
       const result = await removeProfileDocumentAction(
@@ -91,18 +93,18 @@ export function ProfileDocumentField({
       if (result?.ok) {
         setDocument(null);
         setStatus("idle");
-        onChange(spec.key, null, false);
+        onChange?.(spec.key, null, false);
         notifyAction("Document removed.", true);
       } else {
         setStatus("idle");
         notifyAction(result?.message ?? "Could not remove the file.", false);
-        onChange(spec.key, document, false);
+        onChange?.(spec.key, document, false);
       }
     });
   }
 
   return (
-    <div className="grid items-center gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+    <div className={`grid items-center gap-3 py-3 ${compact ? "min-w-0" : "px-4 sm:grid-cols-[minmax(0,1fr)_auto]"}`}>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <div>
@@ -128,7 +130,7 @@ export function ProfileDocumentField({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:justify-end">
+      <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${compact ? "" : "sm:justify-end"}`}>
         {document && (
           <>
             <a

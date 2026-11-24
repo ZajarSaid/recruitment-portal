@@ -9,7 +9,6 @@ import {
   useRef,
   useState,
   type FormEvent,
-  type ReactNode,
 } from "react";
 
 import { SubmitButton } from "@/components/submit-button";
@@ -73,9 +72,7 @@ export function ProfileForm({
   canApply,
   applicationThreshold,
   incompleteNotice,
-  overview,
-  applications,
-  showApplicationsInitially = false,
+  initialSection,
 }: {
   initial: ProfileFormValues | null;
   initialDocuments: ProfileDocumentInfo[];
@@ -85,28 +82,15 @@ export function ProfileForm({
   canApply: boolean;
   applicationThreshold: number;
   incompleteNotice: boolean;
-  overview: ReactNode;
-  applications?: ReactNode;
-  showApplicationsInitially?: boolean;
+  initialSection?: string;
 }) {
   const availableStep = firstIncompleteProfileStep(initial, initialDocuments);
-  const entryPanel = showApplicationsInitially
-    ? "profile-applications"
-    : redirectToApply ? profileSections[0].id : "profile-overview";
-  const [selection, setSelection] = useState({
-    entryPanel,
-    panel: !showApplicationsInitially && (!initial || redirectToApply)
-      ? profileSections[availableStep].id
-      : entryPanel,
-  });
-  const selected =
-    selection.entryPanel === entryPanel ? selection.panel
-      : entryPanel === profileSections[0].id ? profileSections[availableStep].id : entryPanel;
-  function setSelected(panel: string) {
-    setSelection({ entryPanel, panel });
-  }
-  const stepIndex = profileSections.findIndex(({ id }) => id === selected);
-  const nextStep = stepIndex >= 0 ? profileSections[stepIndex + 1] : undefined;
+  const requestedStep = profileSections.findIndex(({ id }) => id === initialSection);
+  const [stepIndex, setStepIndex] = useState(
+    requestedStep >= 0 ? Math.min(requestedStep, availableStep) : availableStep,
+  );
+  const selected = profileSections[stepIndex].id;
+  const nextStep = profileSections[stepIndex + 1];
   const stepIndicator = useRef<HTMLDivElement>(null);
   const previousPanel = useRef(selected);
   useEffect(() => {
@@ -119,7 +103,7 @@ export function ProfileForm({
       data: FormData,
     ) => {
       const result = await saveProfileAction(previous, data);
-      if (result?.ok && nextStep) setSelected(nextStep.id);
+      if (result?.ok && nextStep) setStepIndex(stepIndex + 1);
       return result;
     },
     undefined,
@@ -127,7 +111,7 @@ export function ProfileForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving || anyUploading || stepIndex < 0) return;
+    if (saving || anyUploading) return;
     const data = new FormData(event.currentTarget);
     data.set("step", profileSections[stepIndex].id);
     startTransition(() => action(data));
@@ -162,45 +146,17 @@ export function ProfileForm({
   const missingRequired = requiredSpecs.filter((spec) => !documents[spec.key]);
   const anyUploading = Object.values(uploading).some(Boolean);
 
-  const showingOverview = selected === "profile-overview";
-  const showingApplications = selected === "profile-applications";
-
   return (
     <ProfileLayout sections={
-      <>
-        <div className="grid gap-1 max-md:grid-cols-2">
-          <button
-            type="button"
-            aria-current={showingOverview ? "true" : undefined}
-            aria-controls="profile-overview"
-            disabled={saving}
-            onClick={() => setSelected("profile-overview")}
-            className={profileSectionClassName}
-          >
-            Overview
-          </button>
-          {applications && (
-            <button
-              type="button"
-              aria-current={showingApplications ? "true" : undefined}
-              aria-controls="profile-applications"
-              disabled={saving}
-              onClick={() => setSelected("profile-applications")}
-              className={profileSectionClassName}
-            >
-              My applications
-            </button>
-          )}
-        </div>
-        <ol className="mt-2 grid gap-1 border-t border-zinc-200 pt-2 max-md:grid-cols-2 dark:border-zinc-800">
+        <ol className="grid gap-1 max-md:grid-cols-2">
           {profileSections.map(({ id, label }, index) => (
             <li key={id} className="min-w-0">
               <button
                 type="button"
                 aria-current={selected === id ? "step" : undefined}
                 aria-controls={`profile-section-${id}`}
-                disabled={saving || index > (stepIndex < 0 ? availableStep : stepIndex)}
-                onClick={() => setSelected(id)}
+                disabled={saving || index > stepIndex}
+                onClick={() => setStepIndex(index)}
                 className={`${profileSectionClassName} disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {label}
@@ -208,9 +164,8 @@ export function ProfileForm({
             </li>
           ))}
         </ol>
-      </>
     }>
-        {canApply && !showingApplications ? (
+        {canApply ? (
           <Alert tone="success">
             Your profile meets the application requirement.{" "}
             <Link href={redirectToApply ?? "/jobs"} className="font-semibold underline">
@@ -222,17 +177,8 @@ export function ProfileForm({
             Bring your profile completion above {applicationThreshold}% before applying.
           </Alert>
         )}
-        <div id="profile-overview" hidden={!showingOverview}>
-          {overview}
-        </div>
-        {applications && (
-          <div id="profile-applications" hidden={!showingApplications}>
-            {applications}
-          </div>
-        )}
         <form
           onSubmit={handleSubmit}
-          hidden={showingOverview || showingApplications}
           className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
           noValidate
         >
@@ -515,7 +461,7 @@ export function ProfileForm({
               <button
                 type="button"
                 disabled={saving}
-                onClick={() => setSelected(profileSections[stepIndex - 1].id)}
+                onClick={() => setStepIndex(stepIndex - 1)}
                 className="min-h-11 rounded-lg border border-zinc-300 px-4 text-sm font-semibold disabled:opacity-60 dark:border-zinc-700"
               >
                 Back

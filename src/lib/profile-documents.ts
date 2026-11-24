@@ -208,10 +208,17 @@ export const CATEGORY_DOCUMENT_LISTS: Record<
 };
 
 /** Every document key that can appear on a profile, across all categories. */
+// These documents can be reused by candidates in any category.
+export const OPTIONAL_PORTFOLIO_DOCUMENTS: readonly CategoryDocumentSpec[] = [
+  { key: "PROFILE_CV", label: "Curriculum Vitae (CV)", description: "Your current CV or résumé.", required: false },
+  { key: "PROFILE_ACADEMIC_CERTIFICATE", label: "Academic certificate", description: "A certificate for a relevant qualification.", required: false },
+  { key: "PROFILE_PROFESSIONAL_CERTIFICATE", label: "Professional certificate", description: "A professional qualification or certification.", required: false },
+  { key: "PROFILE_SUPPORTING_DOCUMENT", label: "Other supporting document", description: "Additional evidence relevant to your professional background.", required: false },
+];
+
 export const ALL_PROFILE_DOCUMENT_KEYS: string[] = [
   ...new Set(
-    Object.values(CATEGORY_DOCUMENT_LISTS)
-      .flat()
+    [...Object.values(CATEGORY_DOCUMENT_LISTS).flat(), ...OPTIONAL_PORTFOLIO_DOCUMENTS]
       .map((spec) => spec.key),
   ),
 ];
@@ -220,6 +227,8 @@ export const ALL_PROFILE_DOCUMENT_KEYS: string[] = [
 export function findProfileDocumentSpec(
   key: string,
 ): CategoryDocumentSpec | undefined {
+  const optional = OPTIONAL_PORTFOLIO_DOCUMENTS.find((spec) => spec.key === key);
+  if (optional) return optional;
   for (const specs of Object.values(CATEGORY_DOCUMENT_LISTS)) {
     const match = specs.find((spec) => spec.key === key);
     if (match) return match;

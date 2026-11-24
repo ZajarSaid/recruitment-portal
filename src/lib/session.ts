@@ -17,6 +17,9 @@ import {
 
 export type { SessionPayload } from "./session-core";
 
+export const SESSION_IN_USE_MESSAGE =
+  "This account is already signed in on another browser or device. Sign out there or wait for that session to expire.";
+
 function tokenHash(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
@@ -53,62 +56,59 @@ export async function getSession(): Promise<SessionPayload | null> {
 export async function createSession(
   payload: SessionPayload,
   claim?: (tx: Prisma.TransactionClient) => Promise<boolean>,
-): Promise<boolean> {
-  const now = new Date();
+): Promise<"created" | "in-use" | "rejected"> {
   const { idleSeconds, maxAgeSeconds } = getSessionPolicy(payload.role);
-  const expiresAt = new Date(now.getTime() + maxAgeSeconds * 1000);
   const token = await encryptSession(payload);
   const cookieStore = await cookies();
   const previous = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  const sessionWrites = (db: Prisma.TransactionClient) => [
-    db.userSession.deleteMany({
+  const previousHash = previous ? tokenHash(previous) : undefined;
+  const result = await prisma.$transaction(async (tx) => {
+    // Lock the account even when it has no session, so simultaneous logins
+    // cannot both pass the active-session check.
+    await tx.$queryRaw`SELECT id FROM User WHERE id = ${payload.userId} FOR UPDATE`;
+    if (claim && !(await claim(tx))) return { status: "rejected" } as const;
+
+    const now = new Date();
+    const idleCutoff = new Date(now.getTime() - idleSeconds * 1000);
+    const active = await tx.userSession.findFirst({
+      where: {
+        userId: payload.userId,
+        expiresAt: { gt: now },
+        lastSeenAt: { gt: idleCutoff },
+        ...(previousHash && { tokenHash: { not: previousHash } }),
+      },
+      select: { tokenHash: true },
+    });
+    if (active) return { status: "in-use" } as const;
+
+    await tx.userSession.deleteMany({
       where: {
         OR: [
-          {
-            userId: payload.userId,
-            OR: [
-              { expiresAt: { lte: now } },
-              {
-                lastSeenAt: {
-                  lte: new Date(now.getTime() - idleSeconds * 1000),
-                },
-              },
-            ],
-          },
-          ...(previous ? [{ tokenHash: tokenHash(previous) }] : []),
+          { userId: payload.userId },
+          ...(previousHash ? [{ tokenHash: previousHash }] : []),
         ],
       },
-    }),
-    db.userSession.create({
+    });
+    const expiresAt = new Date(now.getTime() + maxAgeSeconds * 1000);
+    await tx.userSession.create({
       data: {
         tokenHash: tokenHash(token),
         userId: payload.userId,
         lastSeenAt: now,
         expiresAt,
       },
-    }),
-  ] as const;
-
-  if (claim) {
-    const created = await prisma.$transaction(async (tx) => {
-      if (!(await claim(tx))) return false;
-      const [deleteExpired, insert] = sessionWrites(tx);
-      await deleteExpired;
-      await insert;
-      return true;
     });
-    if (!created) return false;
-  } else {
-    await prisma.$transaction([...sessionWrites(prisma)]);
-  }
+    return { status: "created", expiresAt } as const;
+  });
+  if (result.status !== "created") return result.status;
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: env.cookieSecure,
-    expires: expiresAt,
+    expires: result.expiresAt,
     sameSite: "lax",
     path: "/",
   });
-  return true;
+  return "created";
 }
 
 export async function deleteSession(): Promise<void> {
