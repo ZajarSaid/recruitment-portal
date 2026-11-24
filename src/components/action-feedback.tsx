@@ -9,12 +9,13 @@ import {
 } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
-import { FEEDBACK_COOKIE, feedbackMessages } from "@/lib/feedback-messages";
+import { FEEDBACK_COOKIE, feedbackErrors, feedbackMessages } from "@/lib/feedback-messages";
 import type { ActionState } from "@/lib/definitions";
 
 type Feedback = { message: string; ok: boolean };
 const FEEDBACK_EVENT = "portal-action-feedback";
 const CONFIRM_EVENT = "portal-action-confirmation";
+const TOAST_DURATION_MS = 1000;
 type Confirmation = { message: string; label: string; run: () => void };
 const confirmedForms = new WeakSet<HTMLFormElement>();
 
@@ -90,7 +91,7 @@ export function ToastViewport() {
       const timer = setTimeout(() => {
         timers.delete(timer);
         setItems((previous) => previous.filter((item) => item.id !== id));
-      }, 6000);
+      }, TOAST_DURATION_MS);
       timers.add(timer);
     }
     window.addEventListener(FEEDBACK_EVENT, handle);
@@ -120,6 +121,8 @@ export function ToastViewport() {
         feedbackMessages[key as keyof typeof feedbackMessages],
         true,
       );
+    } else if (Object.hasOwn(feedbackErrors, key)) {
+      notifyAction(feedbackErrors[key as keyof typeof feedbackErrors], false);
     }
   }, [pathname, search]);
 

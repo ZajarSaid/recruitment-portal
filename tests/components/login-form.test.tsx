@@ -6,8 +6,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { loginAction } from "@/lib/actions/auth";
 import { LoginForm } from "@/components/auth/login-form";
+import { ToastViewport } from "@/components/action-feedback";
 
 vi.mock("@/lib/actions/auth", () => ({ loginAction: vi.fn() }));
+vi.mock("next/navigation", () => {
+  const search = new URLSearchParams();
+  return { usePathname: () => "/login", useSearchParams: () => search };
+});
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: ComponentProps<"a">) => (
     <a href={href} {...rest}>
@@ -17,6 +22,10 @@ vi.mock("next/link", () => ({
 }));
 
 const loginActionMock = vi.mocked(loginAction);
+
+function renderWithFeedback() {
+  return render(<><LoginForm /><ToastViewport /></>);
+}
 
 beforeEach(() => {
   loginActionMock.mockReset();
@@ -43,12 +52,12 @@ describe("LoginForm", () => {
 
   it("submits the resend intent and shows activation delivery feedback", async () => {
     loginActionMock.mockResolvedValue({ ok: true, message: "Activation email sent." });
-    render(<LoginForm />);
+    renderWithFeedback();
 
     const button = screen.getByRole<HTMLButtonElement>("button", { name: "Resend activation email" });
     fireEvent(button.form!, new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: button }));
 
-    expect((await screen.findByRole("status")).textContent).toBe("Activation email sent.");
+    expect((await screen.findByRole("status")).textContent).toContain("Activation email sent.");
     expect(loginActionMock.mock.calls[0][1].get("intent")).toBe("resend-activation");
   });
 
@@ -57,7 +66,7 @@ describe("LoginForm", () => {
       message: "Invalid email or password.",
     });
 
-    render(<LoginForm />);
+    renderWithFeedback();
     fireEvent.submit(document.querySelector("form")!);
 
     await waitFor(() => {
@@ -84,7 +93,7 @@ describe("LoginForm", () => {
 
   it("keeps the email after a rejected sign-in and clears the password", async () => {
     loginActionMock.mockResolvedValue({ message: "Invalid email or password." });
-    render(<LoginForm />);
+    renderWithFeedback();
 
     const email = screen.getByLabelText<HTMLInputElement>("Email");
     const password = screen.getByLabelText<HTMLInputElement>("Password");

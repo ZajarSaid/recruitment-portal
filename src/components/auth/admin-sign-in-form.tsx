@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { useFeedbackAction } from "@/components/action-feedback";
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, Field, TextInput } from "@/components/ui";
+import { Field, TextInput } from "@/components/ui";
 import {
   requestAdminCode,
   restartAdminSignIn,
@@ -25,9 +25,6 @@ export function AdminSignInForm({ codePending }: { codePending: boolean }) {
 
   return (
     <form action={requestAction} className="space-y-4" noValidate>
-      {requestState?.message && !requestState.ok && (
-        <Alert tone="error">{requestState.message}</Alert>
-      )}
       <Field
         label="Email"
         htmlFor="admin-email"
@@ -75,7 +72,6 @@ function AdminCodeForm({
         Enter the six-digit code sent to your email. It expires in 10 minutes.
       </p>
       <form action={action} className="space-y-4" noValidate>
-        {state?.message && <Alert tone="error">{state.message}</Alert>}
         <Field
           label="Sign-in code"
           htmlFor="admin-code"

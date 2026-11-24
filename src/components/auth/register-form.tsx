@@ -5,7 +5,7 @@ import { useFeedbackAction } from "@/components/action-feedback";
 import Link from "next/link";
 
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, Field, TextInput } from "@/components/ui";
+import { Field, TextInput } from "@/components/ui";
 import { registerAction } from "@/lib/actions/auth";
 
 export function RegisterForm() {
@@ -13,7 +13,6 @@ export function RegisterForm() {
 
   return (
     <form action={action} className="space-y-4" noValidate>
-      {state?.message && <Alert tone="error">{state.message}</Alert>}
 
       <Field label="Full name" htmlFor="name" error={state?.errors?.name}>
         <TextInput

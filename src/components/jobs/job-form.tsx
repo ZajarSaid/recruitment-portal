@@ -5,7 +5,7 @@ import { useFeedbackAction } from "@/components/action-feedback";
 import Link from "next/link";
 
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, Field, Select, TextArea, TextInput } from "@/components/ui";
+import { Field, Select, TextArea, TextInput } from "@/components/ui";
 import {
   JOB_CATEGORIES,
   JOB_CATEGORY_LABELS,
@@ -31,7 +31,6 @@ export function JobForm({ job }: { job?: JobFormValues }) {
 
   return (
     <form action={formAction} className="space-y-4" noValidate>
-      {state?.message && <Alert tone="error">{state.message}</Alert>}
       {job && <input type="hidden" name="id" value={job.id} />}
 
       <Field label="Job title" htmlFor="title" error={state?.errors?.title}>

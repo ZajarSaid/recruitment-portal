@@ -5,7 +5,7 @@ import { confirmForm, useFeedbackAction } from "@/components/action-feedback";
 import { useState } from "react";
 
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, Field, TextArea } from "@/components/ui";
+import { Field, TextArea } from "@/components/ui";
 import { applyToJobAction } from "@/lib/actions/applications";
 import type { StagedDocumentInfo } from "@/lib/actions/documents";
 import {
@@ -64,7 +64,6 @@ export function ApplicationForm({
       className="space-y-4"
       noValidate
     >
-      {state?.message && <Alert tone="error">{state.message}</Alert>}
       <input type="hidden" name="jobId" value={jobId} />
 
       <div className="space-y-3">

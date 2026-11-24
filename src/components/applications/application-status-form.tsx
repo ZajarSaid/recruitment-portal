@@ -3,7 +3,7 @@
 import { confirmForm, useFeedbackAction } from "@/components/action-feedback";
 
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, Field, Select, TextArea } from "@/components/ui";
+import { Field, Select, TextArea } from "@/components/ui";
 import { updateApplicationStatusAction } from "@/lib/actions/recruiter";
 
 const LABELS: Record<string, string> = {
@@ -53,9 +53,6 @@ export function ApplicationStatusForm({
       className="space-y-3"
       noValidate
     >
-      {state?.message && (
-        <Alert tone={state.ok ? "success" : "error"}>{state.message}</Alert>
-      )}
       <input type="hidden" name="applicationId" value={applicationId} />
 
       <div className="flex flex-wrap items-end gap-3">

@@ -96,6 +96,29 @@ it("recovers when the first administrator credential lookup fails", async () => 
   }
 });
 
+it("lets an administrator reuse the code when session creation fails", async () => {
+  const admin = await createTestUser({ role: "ADMIN" });
+  await requestAdminCode(
+    undefined,
+    formData({ email: admin.email, password: admin.plainPassword }),
+  );
+  const [, code] = emailCode.mock.calls[0]!;
+  const transaction = vi.spyOn(prisma, "$transaction")
+    .mockRejectedValueOnce(new Error("Database unavailable"));
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    expect(await verifyAdminCode(undefined, formData({ code }))).toMatchObject({
+      message: expect.stringContaining("temporarily unavailable"),
+    });
+    expect(await getSession()).toBeNull();
+    expect(await expectRedirect(verifyAdminCode(undefined, formData({ code })))).toBe("/admin?verified=1");
+    expect(await getSession()).toMatchObject({ userId: admin.id, adminVerified: true });
+  } finally {
+    transaction.mockRestore();
+    log.mockRestore();
+  }
+});
+
 it("keeps the sign-in form available during database failures for every role", async () => {
   const lookup = vi.spyOn(prisma.user, "findUnique")
     .mockRejectedValue(Object.assign(new Error("Database unavailable"), { code: "P2039" }));

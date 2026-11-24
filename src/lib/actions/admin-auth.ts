@@ -150,10 +150,17 @@ async function verifyCode(data: FormData): Promise<ActionState | string> {
       updatedAt: challenge.accountVersion,
     },
   };
-  const claimed = await prisma.adminSignInChallenge.deleteMany({
-    where: { ...validChallenge, codeHash: codeHash(challenge.id, code) },
+  const created = await createSession({
+    userId: challenge.userId,
+    role: "ADMIN",
+    adminVerified: true,
+  }, async (tx) => {
+    const claimed = await tx.adminSignInChallenge.deleteMany({
+      where: { ...validChallenge, codeHash: codeHash(challenge.id, code) },
+    });
+    return claimed.count === 1;
   });
-  if (claimed.count !== 1) {
+  if (!created) {
     await prisma.adminSignInChallenge.updateMany({
       where: validChallenge,
       data: { attempts: { increment: 1 } },
@@ -164,11 +171,6 @@ async function verifyCode(data: FormData): Promise<ActionState | string> {
   }
 
   await clearChallengeCookie();
-  await createSession({
-    userId: challenge.userId,
-    role: "ADMIN",
-    adminVerified: true,
-  });
   await flashFeedback("signed-in");
   return `${ADMIN_SIGN_IN_PATH}?verified=1`;
 }

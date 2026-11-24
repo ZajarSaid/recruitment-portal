@@ -13,7 +13,6 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
   return (
     <form action={action} className="space-y-4" noValidate>
-      {state?.message && <Alert tone="error">{state.message}</Alert>}
       {state?.errors?.token && (
         <Alert tone="error">{state.errors.token.join(" ")}</Alert>
       )}

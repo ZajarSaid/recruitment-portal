@@ -3,7 +3,7 @@
 import { confirmForm, useFeedbackAction } from "@/components/action-feedback";
 
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, Select } from "@/components/ui";
+import { Select } from "@/components/ui";
 import { setUserActiveAction, updateUserRoleAction } from "@/lib/actions/admin";
 import { ROLES, ROLE_LABELS } from "@/lib/roles";
 
@@ -21,11 +21,11 @@ export function UserManagementRow({
   };
   isSelf: boolean;
 }) {
-  const [roleState, roleAction] = useFeedbackAction(
+  const [, roleAction] = useFeedbackAction(
     updateUserRoleAction,
     undefined,
   );
-  const [activeState, activeAction] = useFeedbackAction(
+  const [, activeAction] = useFeedbackAction(
     setUserActiveAction,
     undefined,
   );
@@ -133,20 +133,6 @@ export function UserManagementRow({
         </div>
       </div>
 
-      {(roleState?.message || activeState?.message) && (
-        <div className="mt-3 space-y-2">
-          {roleState?.message && (
-            <Alert tone={roleState.ok ? "success" : "error"}>
-              {roleState.message}
-            </Alert>
-          )}
-          {activeState?.message && (
-            <Alert tone={activeState.ok ? "success" : "error"}>
-              {activeState.message}
-            </Alert>
-          )}
-        </div>
-      )}
     </div>
   );
 }

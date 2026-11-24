@@ -71,3 +71,22 @@ it("shows the successful logout notification on the sign-in page", () => {
   expect(screen.getByRole("status").textContent).toContain("Logged out successfully.");
   expect(document.cookie).not.toContain(FEEDBACK_COOKIE);
 });
+
+it("dismisses success and error toasts after one second", () => {
+  vi.useFakeTimers();
+  try {
+    render(<ToastViewport />);
+    act(() => {
+      notifyAction("Saved.", true);
+      notifyAction("Upload failed.", false);
+    });
+    act(() => vi.advanceTimersByTime(999));
+    expect(screen.getByRole("status").textContent).toContain("Saved.");
+    expect(screen.getByRole("alert").textContent).toContain("Upload failed.");
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});

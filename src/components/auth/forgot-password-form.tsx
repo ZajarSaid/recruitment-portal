@@ -13,9 +13,6 @@ export function ForgotPasswordForm() {
 
   return (
     <form action={action} className="space-y-4" noValidate>
-      {state?.message && (
-        <Alert tone={state.ok ? "success" : "error"}>{state.message}</Alert>
-      )}
 
       {state?.resetLink && (
         <Alert tone="info">

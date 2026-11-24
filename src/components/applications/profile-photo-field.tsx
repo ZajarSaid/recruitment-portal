@@ -31,14 +31,10 @@ export function ProfilePhotoField({
   const [preview, setPreview] = useState<string | null>(
     savedPreview ?? initial?.url ?? null,
   );
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState(false);
   const [pending, startTransition] = useTransition();
   const localPreview = useRef<string | null>(null);
 
   function handleFile(file: File) {
-    setMessage(null);
-    setError(false);
 
     if (localPreview.current) URL.revokeObjectURL(localPreview.current);
     const objectUrl = URL.createObjectURL(file);
@@ -55,11 +51,8 @@ export function ProfilePhotoField({
       if (result && result.ok) {
         setPhoto({ url: result.url, publicId: result.publicId });
         setPreview(result.url ?? objectUrl);
-        setMessage("Profile photo updated.");
         notifyAction("Profile photo updated.", true);
       } else {
-        setError(true);
-        setMessage(result?.message ?? "Upload failed. Please try again.");
         notifyAction(
           result?.message ?? "Upload failed. Please try again.",
           false,
@@ -76,8 +69,6 @@ export function ProfilePhotoField({
         ok: false,
       }));
       if (!result.ok) {
-        setError(true);
-        setMessage("Could not remove your profile photo.");
         notifyAction("Could not remove your profile photo.", false);
         return;
       }
@@ -88,8 +79,6 @@ export function ProfilePhotoField({
       setPhoto(null);
       notifyAction("Profile photo removed.", true);
       setPreview(null);
-      setMessage(null);
-      setError(false);
     });
   }
 
@@ -156,17 +145,6 @@ export function ProfilePhotoField({
       {pending && (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
           Uploading…
-        </p>
-      )}
-      {!pending && message && (
-        <p
-          className={`mt-2 text-xs ${
-            error
-              ? "text-red-600 dark:text-red-400"
-              : "text-emerald-600 dark:text-emerald-400"
-          }`}
-        >
-          {message}
         </p>
       )}
       <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">

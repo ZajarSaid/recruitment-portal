@@ -19,7 +19,7 @@ export type DocumentSpec = {
   required: boolean;
 };
 
-type UploadStatus = "idle" | "uploading" | "error";
+type UploadStatus = "idle" | "uploading";
 
 export function DocumentUploadField({
   jobId,
@@ -46,7 +46,6 @@ export function DocumentUploadField({
   const inputRef = useRef<HTMLInputElement>(null);
   const [document, setDocument] = useState<StagedDocumentInfo | null>(initial);
   const [status, setStatus] = useState<UploadStatus>("idle");
-  const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const required = spec.required;
@@ -59,7 +58,6 @@ export function DocumentUploadField({
     formData.set("file", file);
 
     setStatus("uploading");
-    setMessage(null);
     onChange(spec.key, document, true);
 
     startTransition(async () => {
@@ -70,12 +68,10 @@ export function DocumentUploadField({
       if (result?.ok && result.document) {
         setDocument(result.document);
         setStatus("idle");
-        setMessage("Uploaded.");
         notifyAction("Uploaded.", true);
         onChange(spec.key, result.document, false);
       } else {
-        setStatus("error");
-        setMessage(result?.message ?? "Upload failed. Please try again.");
+        setStatus("idle");
         notifyAction(
           result?.message ?? "Upload failed. Please try again.",
           false,
@@ -91,7 +87,6 @@ export function DocumentUploadField({
     formData.set("documentKey", spec.key);
 
     setStatus("uploading");
-    setMessage(null);
     onChange(spec.key, document, true);
 
     startTransition(async () => {
@@ -102,12 +97,10 @@ export function DocumentUploadField({
       if (result?.ok) {
         setDocument(null);
         setStatus("idle");
-        setMessage(null);
         onChange(spec.key, null, false);
         notifyAction("Document removed.", true);
       } else {
-        setStatus("error");
-        setMessage(result?.message ?? "Could not remove the file.");
+        setStatus("idle");
         notifyAction(result?.message ?? "Could not remove the file.", false);
         onChange(spec.key, document, false);
       }
@@ -190,17 +183,6 @@ export function DocumentUploadField({
       {busy && (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
           Uploading…
-        </p>
-      )}
-      {!busy && message && (
-        <p
-          className={`mt-2 text-xs ${
-            status === "error"
-              ? "text-red-600 dark:text-red-400"
-              : "text-emerald-600 dark:text-emerald-400"
-          }`}
-        >
-          {message}
         </p>
       )}
       <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">

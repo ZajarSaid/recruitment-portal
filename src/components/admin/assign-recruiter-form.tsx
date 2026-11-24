@@ -4,7 +4,7 @@ import { useFeedbackAction } from "@/components/action-feedback";
 
 
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, Field, TextInput } from "@/components/ui";
+import { Field, TextInput } from "@/components/ui";
 import { assignRecruiterAction } from "@/lib/actions/admin";
 
 export function AssignRecruiterForm({
@@ -18,9 +18,6 @@ export function AssignRecruiterForm({
 
   return (
     <div className="space-y-2">
-      {state?.message && (
-        <Alert tone={state.ok ? "success" : "error"}>{state.message}</Alert>
-      )}
       <form action={action} className="flex flex-wrap items-end gap-3" noValidate>
         <input type="hidden" name="jobId" value={jobId} />
         <div className="w-full min-w-0 sm:flex-1">

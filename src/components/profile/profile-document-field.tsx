@@ -21,7 +21,7 @@ export type ProfileDocumentInfo = {
   url: string | null;
 };
 
-type UploadStatus = "idle" | "uploading" | "removing" | "error";
+type UploadStatus = "idle" | "uploading" | "removing";
 
 export function ProfileDocumentField({
   document: spec,
@@ -43,7 +43,6 @@ export function ProfileDocumentField({
   const inputId = useId();
   const [document, setDocument] = useState<ProfileDocumentInfo | null>(initial);
   const [status, setStatus] = useState<UploadStatus>("idle");
-  const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const busy = pending || status === "uploading" || status === "removing";
@@ -54,7 +53,6 @@ export function ProfileDocumentField({
     formData.set("file", file);
 
     setStatus("uploading");
-    setMessage(null);
     onChange(spec.key, document, true);
 
     startTransition(async () => {
@@ -65,12 +63,10 @@ export function ProfileDocumentField({
       if (result?.ok && result.document) {
         setDocument(result.document);
         setStatus("idle");
-        setMessage("Uploaded.");
         notifyAction("Uploaded.", true);
         onChange(spec.key, result.document, false);
       } else {
-        setStatus("error");
-        setMessage(result?.message ?? "Upload failed. Please try again.");
+        setStatus("idle");
         notifyAction(
           result?.message ?? "Upload failed. Please try again.",
           false,
@@ -85,7 +81,6 @@ export function ProfileDocumentField({
     formData.set("documentKey", spec.key);
 
     setStatus("removing");
-    setMessage(null);
     onChange(spec.key, document, true);
 
     startTransition(async () => {
@@ -96,12 +91,10 @@ export function ProfileDocumentField({
       if (result?.ok) {
         setDocument(null);
         setStatus("idle");
-        setMessage(null);
         onChange(spec.key, null, false);
         notifyAction("Document removed.", true);
       } else {
-        setStatus("error");
-        setMessage(result?.message ?? "Could not remove the file.");
+        setStatus("idle");
         notifyAction(result?.message ?? "Could not remove the file.", false);
         onChange(spec.key, document, false);
       }
@@ -192,18 +185,6 @@ export function ProfileDocumentField({
           className="text-xs text-zinc-500 sm:col-span-2 dark:text-zinc-400"
         >
           {status === "removing" ? "Removing…" : "Uploading…"}
-        </p>
-      )}
-      {!busy && message && (
-        <p
-          role={status === "error" ? "alert" : "status"}
-          className={`text-xs sm:col-span-2 ${
-            status === "error"
-              ? "text-red-600 dark:text-red-400"
-              : "text-emerald-600 dark:text-emerald-400"
-          }`}
-        >
-          {message}
         </p>
       )}
     </div>

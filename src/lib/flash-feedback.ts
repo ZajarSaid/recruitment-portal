@@ -3,9 +3,9 @@ import "server-only";
 import { cookies } from "next/headers";
 
 import { env } from "./env";
-import { FEEDBACK_COOKIE, type feedbackMessages } from "./feedback-messages";
+import { FEEDBACK_COOKIE, type feedbackErrors, type feedbackMessages } from "./feedback-messages";
 
-export async function flashFeedback(key: keyof typeof feedbackMessages) {
+export async function flashFeedback(key: keyof typeof feedbackMessages | keyof typeof feedbackErrors) {
   (await cookies()).set(FEEDBACK_COOKIE, key, {
     path: "/",
     sameSite: "lax",

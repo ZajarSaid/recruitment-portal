@@ -510,13 +510,6 @@ export function ProfileForm({
           </section>
 
           <div className="flex flex-wrap items-center justify-end gap-3 border-t border-indigo-100 pt-4 dark:border-zinc-800">
-            {state?.message && (
-              <div className="w-full" role={state.ok ? "status" : "alert"}>
-                <Alert tone={state.ok ? "success" : "error"}>
-                  {state.message}
-                </Alert>
-              </div>
-            )}
             {stepIndex > 0 && (
               <button
                 type="button"

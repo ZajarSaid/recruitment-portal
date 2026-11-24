@@ -5,13 +5,11 @@ import { notifyAction } from "@/components/action-feedback";
 
 export function UploadForm() {
   const [result, setResult] = useState<string>();
-  const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResult(undefined);
-    setError(undefined);
     setPending(true);
     try {
       const formData = new FormData(e.currentTarget as HTMLFormElement);
@@ -22,14 +20,12 @@ export function UploadForm() {
       const data = await res.json();
       if (!res.ok) {
         const message = data.error ?? "Upload failed.";
-        setError(message);
         notifyAction(message, false);
         return;
       }
       setResult(data.url);
       notifyAction("File uploaded.", true);
     } catch {
-      setError("Upload failed.");
       notifyAction("Upload failed.", false);
     } finally {
       setPending(false);
@@ -46,7 +42,6 @@ export function UploadForm() {
       >
         {pending ? "Uploading…" : "Upload"}
       </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
       {result && (
         <p className="text-sm">
           <a href={result} target="_blank" rel="noreferrer" className="underline">

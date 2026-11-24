@@ -3,7 +3,6 @@
 import { confirmForm, useFeedbackAction } from "@/components/action-feedback";
 
 import { SubmitButton } from "@/components/submit-button";
-import { Alert } from "@/components/ui";
 import { setJobStatusAction } from "@/lib/actions/jobs";
 
 type StatusValue = "DRAFT" | "PUBLISHED" | "CLOSED";
@@ -27,14 +26,11 @@ export function JobStatusControls({
   jobId: string;
   status: string;
 }) {
-  const [state, formAction] = useFeedbackAction(setJobStatusAction, undefined);
+  const [, formAction] = useFeedbackAction(setJobStatusAction, undefined);
   const options = TRANSITIONS[status as StatusValue] ?? [];
 
   return (
     <div className="space-y-3">
-      {state?.message && (
-        <Alert tone={state.ok ? "success" : "error"}>{state.message}</Alert>
-      )}
 
       {options.length === 0 ? (
         <p className="text-sm text-zinc-500 dark:text-zinc-400">

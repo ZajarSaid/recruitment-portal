@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, Field, TextInput } from "@/components/ui";
+import { Field, TextInput } from "@/components/ui";
 import { loginAction } from "@/lib/actions/auth";
 
 export function LoginForm({ next }: { next?: string }) {
@@ -16,11 +16,6 @@ export function LoginForm({ next }: { next?: string }) {
 
   return (
     <form action={action} className="space-y-4" noValidate>
-      {state?.message && (
-        <div role={state.ok ? "status" : "alert"}>
-          <Alert tone={state.ok ? "success" : "error"}>{state.message}</Alert>
-        </div>
-      )}
       {next && <input type="hidden" name="next" value={next} />}
 
       <Field label="Email" htmlFor="email" error={state?.errors?.email}>

@@ -97,12 +97,14 @@ export async function registerAction(
   }
 
   const { delivered } = await sendCandidateActivationEmail(email, activation.url);
+  await flashFeedback(delivered ? "activation-sent" : "activation-delivery-failed");
   redirect(delivered ? "/login?activation=sent" : "/login?activation=delivery-failed");
 }
 
 export async function activateCandidateAction(formData: FormData): Promise<void> {
   const token = formValue(formData, "token");
   if (!/^[0-9a-f]{64}$/.test(token)) {
+    await flashFeedback("activation-invalid");
     redirect("/login?activation=invalid");
   }
 
@@ -115,6 +117,7 @@ export async function activateCandidateAction(formData: FormData): Promise<void>
     },
     data: { activationTokenHash: null, activationExpiresAt: null },
   });
+  await flashFeedback(activated.count ? "activation-confirmed" : "activation-invalid");
   redirect(activated.count ? "/login?activation=confirmed" : "/login?activation=invalid");
 }
 
