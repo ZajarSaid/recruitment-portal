@@ -3,14 +3,17 @@ import "server-only";
 import {
   deleteCloudAsset,
   isCloudinaryConfigured,
+  signedDocumentUrl,
   uploadBuffer,
 } from "./cloudinary";
 import {
   buildStorageKey,
   deleteStoredFile,
+  detectMimeType,
   readStoredFile,
   writeStoredFile,
 } from "./uploads";
+import { MIME_EXTENSIONS } from "./document-files";
 
 /**
  * Storage backend abstraction for uploaded files.
@@ -103,19 +106,29 @@ export async function deleteStoredUpload(
 }
 
 /**
- * Resolves a stored file for delivery. Cloud files return their public URL
- * (callers should redirect); local files are read into a buffer.
+ * Reads the original document bytes with server-side credentials for cloud
+ * assets. Provider error responses must never reach the document viewer.
  */
 export async function resolveStoredUpload(
   reference: string,
   cloudUrl: string | null,
-): Promise<
-  | { kind: "redirect"; url: string }
-  | { kind: "buffer"; buffer: Buffer }
-> {
-  if (isCloudReference(reference)) {
-    if (!cloudUrl) throw new Error("Cloud asset is missing its URL.");
-    return { kind: "redirect", url: cloudUrl };
+  mimeType: string,
+): Promise<Buffer> {
+  if (!isCloudReference(reference)) return readStoredFile(reference);
+
+  const format = MIME_EXTENSIONS[mimeType]?.slice(1);
+  if (!cloudUrl || !format) throw new Error("Cloud document has incomplete metadata.");
+  const url = signedDocumentUrl(fromCloudReference(reference), cloudUrl, format);
+  const response = await fetch(url, {
+    cache: "no-store",
+    redirect: "error",
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error("Cloud document could not be fetched.");
   }
-  return { kind: "buffer", buffer: await readStoredFile(reference) };
+  const data = Buffer.from(await response.arrayBuffer());
+  if (detectMimeType(data) !== mimeType) throw new Error("Cloud document content does not match its file type.");
+  return data;
 }

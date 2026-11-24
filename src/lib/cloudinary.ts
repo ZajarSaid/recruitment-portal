@@ -67,4 +67,22 @@ export async function deleteCloudAsset(
   }
 }
 
+export function signedDocumentUrl(publicId: string, deliveryUrl: string, format: string) {
+  const url = new URL(deliveryUrl);
+  const delivery = url.pathname.match(/^\/(?:[^/]+\/)?(image|raw)\/(upload|private|authenticated)\//);
+  if (url.protocol !== "https:" ||
+    (url.hostname !== "res.cloudinary.com" && !url.hostname.endsWith(".res.cloudinary.com")) ||
+    !delivery) {
+    throw new Error("Invalid Cloudinary document URL.");
+  }
+  const resourceType = delivery[1] as "image" | "raw";
+  const type = delivery[2] as "upload" | "private" | "authenticated";
+  return cloudinary.utils.private_download_url(publicId, resourceType === "raw" ? "" : format, {
+    resource_type: resourceType,
+    type,
+    attachment: false,
+    expires_at: Math.floor(Date.now() / 1000) + 60,
+  });
+}
+
 export default cloudinary;

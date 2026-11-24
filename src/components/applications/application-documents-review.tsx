@@ -9,7 +9,6 @@ type DocumentView = {
   fileSize: number;
   reviewStatus: "PENDING" | "ACCEPTED" | "REJECTED";
   reviewComment: string | null;
-  cloudUrl?: string | null;
 };
 
 export type DocumentReviewItem = {
@@ -43,12 +42,8 @@ function DocumentReviewRow({
 }) {
   const document = item.document;
   const status = document ? document.reviewStatus : "MISSING";
-  const baseUrl = document?.cloudUrl
-    ? document.cloudUrl
-    : `/applications/${applicationId}/documents/${document?.id}`;
-  const downloadUrl = document?.cloudUrl
-    ? document.cloudUrl
-    : `${baseUrl}?download=1`;
+  const baseUrl = `/applications/${applicationId}/documents/${document?.id}`;
+  const downloadUrl = `${baseUrl}?download=1`;
 
   return (
     <div className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
@@ -185,10 +180,7 @@ export function ApplicationDocumentsReview({
                   Additional document
                 </p>
                 <a
-                  href={
-                    document.cloudUrl ??
-                    `/applications/${applicationId}/documents/${document.id}`
-                  }
+                  href={`/applications/${applicationId}/documents/${document.id}`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"

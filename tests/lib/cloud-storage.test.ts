@@ -9,6 +9,13 @@ import {
   toCloudReference,
   usesCloudStorage,
 } from "@/lib/cloud-storage";
+import { signedDocumentUrl } from "@/lib/cloudinary";
+import { serveStoredDocument } from "@/lib/document-response";
+
+vi.mock("@/lib/cloudinary", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/cloudinary")>(),
+  signedDocumentUrl: vi.fn(() => "https://api.cloudinary.com/signed-document"),
+}));
 
 /**
  * These tests run without Cloudinary credentials, so the storage abstraction
@@ -82,32 +89,61 @@ describe("storeUploadedFile (local fallback)", () => {
     expect(isCloudReference(stored.reference)).toBe(false);
     expect(stored.reference).toMatch(/^documents\/test-user\/[0-9a-f-]+\.png$/);
 
-    const resolved = await resolveStoredUpload(stored.reference, stored.url);
-    expect(resolved.kind).toBe("buffer");
-    if (resolved.kind === "buffer") {
-      expect(resolved.buffer).toEqual(PNG_BYTES);
-    }
+    expect(await resolveStoredUpload(stored.reference, stored.url, "image/png")).toEqual(PNG_BYTES);
 
     await deleteStoredUpload(stored.reference);
     await expect(
-      resolveStoredUpload(stored.reference, stored.url),
+      resolveStoredUpload(stored.reference, stored.url, "image/png"),
     ).rejects.toThrow();
-  });
-
-  it("resolves a cloud reference by URL without touching disk", async () => {
-    const resolved = await resolveStoredUpload(
-      toCloudReference("docs/x"),
-      "https://res.cloudinary.com/demo/image/upload/docs/x.png",
-    );
-    expect(resolved).toEqual({
-      kind: "redirect",
-      url: "https://res.cloudinary.com/demo/image/upload/docs/x.png",
-    });
   });
 
   it("throws when a cloud reference has no URL", async () => {
     await expect(
-      resolveStoredUpload(toCloudReference("docs/x"), null),
+      resolveStoredUpload(toCloudReference("docs/x"), null, "application/pdf"),
     ).rejects.toThrow();
+  });
+});
+
+describe("serving a cloud document", () => {
+  const document = {
+    storageKey: toCloudReference("docs/x"),
+    cloudUrl: "https://res.cloudinary.com/demo/image/upload/docs/x.pdf",
+    originalFileName: "certificate.pdf",
+    mimeType: "application/pdf",
+  };
+
+  it("returns the signed file bytes inline or as a download", async () => {
+    const pdf = "%PDF-1.7\n";
+    const fetchAsset = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(pdf));
+    try {
+      const preview = await serveStoredDocument(document);
+      expect(preview.status).toBe(200);
+      expect(preview.headers.get("content-type")).toBe("application/pdf");
+      expect(preview.headers.get("content-disposition")).toBe('inline; filename="certificate.pdf"');
+      expect(preview.headers.get("cache-control")).toBe("private, no-store");
+      expect(await preview.text()).toBe(pdf);
+      expect(signedDocumentUrl).toHaveBeenCalledWith("docs/x", document.cloudUrl, "pdf");
+      expect(fetchAsset).toHaveBeenCalledWith("https://api.cloudinary.com/signed-document", expect.any(Object));
+
+      const download = await serveStoredDocument(document, true);
+      expect(download.headers.get("content-disposition")).toBe('attachment; filename="certificate.pdf"');
+    } finally {
+      fetchAsset.mockRestore();
+    }
+  });
+
+  it("does not deliver provider error JSON as a document", async () => {
+    const fetchAsset = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ error: "Private provider error" }, { status: 401 }))
+      .mockResolvedValueOnce(Response.json({ error: "Private provider error" }));
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const response = await serveStoredDocument(document);
+        expect(response.status).toBe(502);
+        expect(await response.text()).toBe("The document could not be loaded. Please try again.");
+      }
+    } finally {
+      fetchAsset.mockRestore();
+    }
   });
 });
