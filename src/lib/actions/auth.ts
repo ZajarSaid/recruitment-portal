@@ -20,6 +20,7 @@ import { roleHome } from "@/lib/navigation";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
 import { createSession, deleteSession } from "@/lib/session";
+import { handleSignInFailure, readForSignIn } from "@/lib/sign-in-availability";
 
 function formValue(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -121,6 +122,12 @@ export async function loginAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const result = await handleSignInFailure("password sign-in", () => signIn(formData));
+  if (typeof result === "string") redirect(result);
+  return result;
+}
+
+async function signIn(formData: FormData): Promise<ActionState | string> {
   const parsed = loginSchema.safeParse({
     email: formValue(formData, "email"),
     password: formValue(formData, "password"),
@@ -139,7 +146,7 @@ export async function loginAction(
     };
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await readForSignIn(() => prisma.user.findUnique({ where: { email } }));
 
   // Always run a comparison to keep timing similar whether or not the account
   // exists, then return a generic error so we never reveal account existence.
@@ -185,23 +192,21 @@ export async function loginAction(
     return { message: "Your account is already active. Select Sign in to continue." };
   }
 
-  await createSession({ userId: user.id, role: user.role });
-  await flashFeedback("signed-in");
-
   const nextPath = safeNextPath(formValue(formData, "next"));
+  let destination = nextPath ?? roleHome(user.role);
   if (user.role === "CANDIDATE" && !nextPath) {
     // Candidates who have not completed their master profile are sent to the
     // profile page first; applying later only needs an application letter.
-    const profile = await prisma.candidateProfile.findUnique({
+    const profile = await readForSignIn(() => prisma.candidateProfile.findUnique({
       where: { userId: user.id },
       select: { id: true },
-    });
-    if (!profile) {
-      redirect("/profile");
-    }
+    }));
+    if (!profile) destination = "/profile";
   }
 
-  redirect(nextPath ?? roleHome(user.role));
+  await createSession({ userId: user.id, role: user.role });
+  await flashFeedback("signed-in");
+  return destination;
 }
 
 export async function logoutAction(): Promise<void> {

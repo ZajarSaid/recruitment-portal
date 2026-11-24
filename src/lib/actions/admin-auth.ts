@@ -18,6 +18,7 @@ import { flashFeedback } from "@/lib/flash-feedback";
 import { verifyPassword } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
 import { createSession } from "@/lib/session";
+import { handleSignInFailure, readForSignIn } from "@/lib/sign-in-availability";
 
 const CODE_LIFETIME_MS = 10 * 60_000;
 const MAX_CODE_ATTEMPTS = 5;
@@ -43,6 +44,10 @@ export async function requestAdminCode(
   _previous: ActionState,
   data: FormData,
 ): Promise<ActionState> {
+  return handleSignInFailure("request administrator code", () => requestCode(data));
+}
+
+async function requestCode(data: FormData): Promise<ActionState> {
   if (!isAdminHost((await headers()).get("host")))
     return { message: "Sign-in is unavailable." };
 
@@ -58,7 +63,10 @@ export async function requestAdminCode(
     };
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await readForSignIn(() => prisma.user.findUnique({
+    where: { email },
+    select: { id: true, email: true, passwordHash: true, role: true, isActive: true, updatedAt: true },
+  }));
   if (
     !user ||
     !(await verifyPassword(password, user.passwordHash)) ||
@@ -104,6 +112,12 @@ export async function verifyAdminCode(
   _previous: ActionState,
   data: FormData,
 ): Promise<ActionState> {
+  const result = await handleSignInFailure("verify administrator code", () => verifyCode(data));
+  if (typeof result === "string") redirect(result);
+  return result;
+}
+
+async function verifyCode(data: FormData): Promise<ActionState | string> {
   if (!isAdminHost((await headers()).get("host")))
     return { message: "Sign-in is unavailable." };
 
@@ -114,7 +128,7 @@ export async function verifyAdminCode(
 
   const id = (await cookies()).get(ADMIN_CHALLENGE_COOKIE)?.value;
   const challenge = id
-    ? await prisma.adminSignInChallenge.findUnique({ where: { id } })
+    ? await readForSignIn(() => prisma.adminSignInChallenge.findUnique({ where: { id } }))
     : null;
   if (
     !challenge ||
@@ -156,17 +170,16 @@ export async function verifyAdminCode(
     adminVerified: true,
   });
   await flashFeedback("signed-in");
-  redirect(`${ADMIN_SIGN_IN_PATH}?verified=1`);
+  return `${ADMIN_SIGN_IN_PATH}?verified=1`;
 }
 
-export async function restartAdminSignIn(
-  _previous: ActionState,
-  _data: FormData,
-): Promise<ActionState> {
-  if (!isAdminHost((await headers()).get("host")))
-    return { message: "Sign-in is unavailable." };
-  const id = (await cookies()).get(ADMIN_CHALLENGE_COOKIE)?.value;
-  if (id) await prisma.adminSignInChallenge.deleteMany({ where: { id } });
-  await clearChallengeCookie();
-  return { ok: true, message: "Enter your password to request a new code." };
+export async function restartAdminSignIn(): Promise<ActionState> {
+  return handleSignInFailure("restart administrator sign-in", async () => {
+    if (!isAdminHost((await headers()).get("host")))
+      return { message: "Sign-in is unavailable." };
+    const id = (await cookies()).get(ADMIN_CHALLENGE_COOKIE)?.value;
+    if (id) await prisma.adminSignInChallenge.deleteMany({ where: { id } });
+    await clearChallengeCookie();
+    return { ok: true, message: "Enter your password to request a new code." };
+  });
 }

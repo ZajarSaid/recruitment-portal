@@ -7,6 +7,7 @@ import { Card, StatCard } from "@/components/ui";
 import { ADMIN_CHALLENGE_COOKIE } from "@/lib/admin-challenge";
 import { getCurrentUser } from "@/lib/dal";
 import { prisma } from "@/lib/db";
+import { readForSignIn } from "@/lib/sign-in-availability";
 
 export const metadata: Metadata = {
   title: "Admin dashboard",
@@ -28,9 +29,9 @@ export default async function AdminPage() {
   }
 
   const [usersByRole, jobsByStatus, applicationsByStatus] = await Promise.all([
-    prisma.user.groupBy({ by: ["role"], _count: { _all: true } }),
-    prisma.job.groupBy({ by: ["status"], _count: { _all: true } }),
-    prisma.application.groupBy({ by: ["status"], _count: { _all: true } }),
+    readForSignIn(() => prisma.user.groupBy({ by: ["role"], _count: { _all: true } })),
+    readForSignIn(() => prisma.job.groupBy({ by: ["status"], _count: { _all: true } })),
+    readForSignIn(() => prisma.application.groupBy({ by: ["status"], _count: { _all: true } })),
   ]);
 
   const roleCount = Object.fromEntries(

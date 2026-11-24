@@ -8,6 +8,7 @@ import { prisma } from "./db";
 import { ADMIN_SIGN_IN_PATH, isAdminHost } from "./admin-access";
 import { getSession } from "./session";
 import type { AppRole } from "./roles";
+import { readForSignIn } from "./sign-in-availability";
 
 export type CurrentUser = {
   id: string;
@@ -26,10 +27,11 @@ export type CurrentUser = {
  * changes are enforced on the server immediately.
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
-  const session = await getSession();
+  // A repeat can safely refresh the activity timestamp for the same session.
+  const session = await readForSignIn(getSession);
   if (!session) return null;
 
-  const user = await prisma.user.findUnique({
+  const user = await readForSignIn(() => prisma.user.findUnique({
     where: { id: session.userId },
     select: {
       id: true,
@@ -40,7 +42,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       activationTokenHash: true,
       createdAt: true,
     },
-  });
+  }));
 
   if (!user || !user.isActive) return null;
   const { activationTokenHash, ...currentUser } = user;

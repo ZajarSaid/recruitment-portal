@@ -4,6 +4,7 @@ import { requestAdminCode, verifyAdminCode } from "@/lib/actions/admin-auth";
 import { loginAction } from "@/lib/actions/auth";
 import { ADMIN_CHALLENGE_COOKIE } from "@/lib/admin-challenge";
 import { getCurrentUser } from "@/lib/dal";
+import { prisma } from "@/lib/db";
 import { sendAdminSignInCode } from "@/lib/email/admin-sign-in-email";
 import { resetRateLimits } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
@@ -75,4 +76,40 @@ it("locks a challenge after five incorrect codes", async () => {
     message: expect.stringContaining("attempt limit"),
   });
   expect(await getSession()).toBeNull();
+});
+
+it("recovers when the first administrator credential lookup fails", async () => {
+  const admin = await createTestUser({ role: "ADMIN" });
+  const lookup = vi.spyOn(prisma.user, "findUnique")
+    .mockRejectedValueOnce(Object.assign(new Error("Database unavailable"), { code: "P2039" }));
+  try {
+    const result = await requestAdminCode(undefined, formData({
+      email: admin.email,
+      password: admin.plainPassword,
+    }));
+    expect(result).toMatchObject({ ok: true });
+    expect(lookup).toHaveBeenCalledTimes(2);
+    expect(emailCode).toHaveBeenCalledOnce();
+    expect(await getSession()).toBeNull();
+  } finally {
+    lookup.mockRestore();
+  }
+});
+
+it("keeps the sign-in form available during database failures for every role", async () => {
+  const lookup = vi.spyOn(prisma.user, "findUnique")
+    .mockRejectedValue(Object.assign(new Error("Database unavailable"), { code: "P2039" }));
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const credentials = formData({ email: "user@example.com", password: "Password123!" });
+    const unavailable = { message: "Sign-in is temporarily unavailable. Please try again shortly." };
+    expect(await loginAction(undefined, credentials)).toEqual(unavailable);
+    expect(await requestAdminCode(undefined, credentials)).toEqual(unavailable);
+    expect(lookup).toHaveBeenCalledTimes(4);
+    expect(emailCode).not.toHaveBeenCalled();
+    expect(await getSession()).toBeNull();
+  } finally {
+    lookup.mockRestore();
+    log.mockRestore();
+  }
 });
