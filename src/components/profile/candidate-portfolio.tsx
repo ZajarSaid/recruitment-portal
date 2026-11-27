@@ -5,6 +5,7 @@ import type { CandidateCertification, CandidateEducation, CandidateEmployment } 
 import { ProfilePhotoField } from "@/components/applications/profile-photo-field";
 import { Badge, Card } from "@/components/ui";
 import { ProfileDocumentField } from "@/components/profile/profile-document-field";
+import { ProfileSidebarIdentity } from "@/components/profile/profile-sidebar-identity";
 import { PortfolioSections } from "@/components/profile/portfolio-sections";
 import { PortfolioEditor, RemovePortfolioRecord, type PortfolioInput } from "@/components/profile/portfolio-editor";
 import type { CurrentUser } from "@/lib/dal";
@@ -12,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { DOCUMENT_ACCEPT_ATTRIBUTE, formatFileSize } from "@/lib/document-files";
 import { formatDate } from "@/lib/format";
 import { candidatePortfolioCompletion, summarizeCandidateApplications } from "@/lib/portfolio-summary";
+import { profileStepHref } from "@/lib/profile-steps";
 import { APPLICATION_PROFILE_THRESHOLD, missingRequiredProfileDocuments, type CandidateProfileWithDocuments } from "@/lib/profile";
 import {
   BIRTH_MONTH_LABELS, COMPUTER_LITERACY_LABELS, EDUCATION_LEVEL_LABELS,
@@ -153,8 +155,6 @@ export async function CandidatePortfolio({
     hasRequiredDocuments: categorySpecs.some(({ required }) => required) ? missing.length === 0 : null,
   });
 
-  const initials = user.name.trim().split(/\s+/).slice(0, 2)
-    .map((part) => Array.from(part)[0]).join("").toUpperCase();
   const location = profile?.location || profile?.physicalAddress;
   const educationLevel = profile?.educationLevel ? EDUCATION_LEVEL_LABELS[profile.educationLevel] : null;
   const contactFields: PortfolioInput[] = [
@@ -171,43 +171,44 @@ export async function CandidatePortfolio({
   ];
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:px-6 sm:py-8">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">My Profile</h1>
-        <p className={`mt-1 ${muted}`}>Manage your personal and professional information.</p>
-      </div>
-
-      <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm sm:p-6 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="flex min-w-0 flex-1 basis-full items-start gap-4 sm:basis-auto sm:gap-5">
-          {photoSource ? (
-            // eslint-disable-next-line @next/next/no-img-element -- Profile photos come from the existing upload route.
-            <img src={photoSource} alt="" width={88} height={88} className="size-16 shrink-0 rounded-full object-cover ring-4 ring-indigo-50 sm:size-[5.5rem] dark:ring-indigo-950" />
-          ) : (
-            <span aria-hidden="true" className="grid size-16 shrink-0 place-items-center rounded-full bg-indigo-100 text-xl font-semibold text-indigo-800 sm:size-[5.5rem] dark:bg-indigo-950 dark:text-indigo-200">
-              {initials}
-            </span>
-          )}
-          <div className="min-w-0">
-            <p className="wrap-anywhere text-2xl font-semibold tracking-tight">{user.name}</p>
-            <p className="mt-1 wrap-anywhere text-sm font-medium text-indigo-700 dark:text-indigo-300">{profile?.headline || JOB_CATEGORY_LABELS[category]}</p>
-            <ul className={`mt-2 flex flex-wrap gap-x-4 gap-y-1 ${muted}`}>
-              {location && <li className="min-w-0 wrap-anywhere">{location}</li>}
-              <li className="min-w-0 wrap-anywhere">{user.email}</li>
-              {profile?.phone && <li className="min-w-0 wrap-anywhere">{profile.phone}</li>}
-            </ul>
-          </div>
-        </div>
-        <PortfolioEditor kind="contact" title="Edit profile" label="Edit Profile" fields={contactFields} primary />
-      </header>
-
+    <main className="mx-auto w-full max-w-[100rem] px-3 py-4 sm:px-5 sm:py-6">
       <PortfolioSections
+        sidebarHeader={
+          <ProfileSidebarIdentity name={user.name} photoSource={photoSource}>
+            <p className="wrap-anywhere text-xs text-slate-600 dark:text-zinc-400">{profile?.headline || JOB_CATEGORY_LABELS[category]}</p>
+          </ProfileSidebarIdentity>
+        }
+        overview={
+          <header className="space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="wrap-anywhere text-2xl font-semibold tracking-tight sm:text-3xl">Welcome, {user.name.trim().split(/\s+/)[0]}</h1>
+                <p className={muted}>Track your applications and complete your profile.</p>
+              </div>
+              <Link href="/profile?section=applications" className={link}>My applications</Link>
+            </div>
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-indigo-100 bg-indigo-100 sm:grid-cols-4 dark:border-zinc-800 dark:bg-zinc-800">
+              {[
+                { label: "Total applications", value: counts.total, tone: "text-indigo-800 dark:text-indigo-200" },
+                { label: "Pending", value: counts.pending, tone: "text-amber-800 dark:text-amber-200" },
+                { label: "Shortlisted", value: counts.shortlisted, tone: "text-emerald-800 dark:text-emerald-200" },
+                { label: "Rejected", value: counts.rejected, tone: "text-slate-800 dark:text-zinc-200" },
+              ].map(({ label, value, tone }) => (
+                <div key={label} className="min-w-0 bg-white px-3 py-4 text-center dark:bg-zinc-950">
+                  <dt className={muted}>{label}</dt>
+                  <dd className={"mt-1 text-3xl font-semibold tabular-nums " + tone}>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </header>
+        }
         completion={
           <Card className="bg-white">
             <SectionHeading>Profile Completion</SectionHeading>
-            <div className="mt-4 flex items-center gap-3">
+            <div className="mt-4 space-y-2">
+              <span className="block text-2xl font-semibold tabular-nums text-indigo-800 dark:text-indigo-200">{completion.percentage}%</span>
               <progress value={completion.percentage} max={100} aria-label="Profile completion"
-                className="h-2.5 min-w-0 flex-1 appearance-none overflow-hidden rounded-full bg-indigo-100 [&::-webkit-progress-bar]:bg-indigo-100 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-indigo-600 [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-indigo-600 dark:[&::-webkit-progress-bar]:bg-zinc-800 dark:[&::-webkit-progress-value]:bg-indigo-400 dark:[&::-moz-progress-bar]:bg-indigo-400" />
-              <span className="text-lg font-semibold tabular-nums">{completion.percentage}%</span>
+                className="block h-2.5 w-full appearance-none overflow-hidden rounded-full bg-indigo-100 [&::-webkit-progress-bar]:bg-indigo-100 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-indigo-600 [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-indigo-600 dark:[&::-webkit-progress-bar]:bg-zinc-800 dark:[&::-webkit-progress-value]:bg-indigo-400 dark:[&::-moz-progress-bar]:bg-indigo-400" />
             </div>
             <p className={`mt-2 ${muted}`}>{completion.percentage === 100 ? "Your core profile is complete." : "Complete these sections to finish your profile."}</p>
             <ul className="mt-3 space-y-2">
@@ -233,8 +234,29 @@ export async function CandidatePortfolio({
         }
         sections={[
           {
+            id: "dashboard",
+            label: "Dashboard",
+            content: (
+              <Card className="bg-white">
+                <SectionHeading>Application tips</SectionHeading>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl bg-indigo-50 p-4 dark:bg-indigo-950/60">
+                    <h3 className="font-semibold">Complete your profile</h3>
+                    <p className={`mt-1 ${muted}`}>Fill in the required details and upload your supporting documents before applying.</p>
+                    <Link href="/profile?section=edit" className={link}>Review profile steps</Link>
+                  </div>
+                  <div className="rounded-xl bg-sky-50 p-4 dark:bg-sky-950/50">
+                    <h3 className="font-semibold">Apply for a vacancy</h3>
+                    <p className={`mt-1 ${muted}`}>Choose a vacancy, read the requirements, and submit your application online.</p>
+                    <Link href="/jobs" className={link}>Browse vacancies</Link>
+                  </div>
+                </div>
+              </Card>
+            ),
+          },
+          {
             id: "personal",
-            label: "Personal information",
+            label: "Personal details",
             content: (
               <Card className="bg-white">
                 <SectionHeading action={<PortfolioEditor kind="contact" title="Edit personal information" label="Edit" fields={contactFields} />}>
@@ -277,7 +299,7 @@ export async function CandidatePortfolio({
           },
           {
             id: "education",
-            label: "Education",
+            label: "Academic qualifications",
             content: (
               <Card className="bg-white">
                 <SectionHeading action={<PortfolioEditor kind="education" title="Add education" label="Add Education" fields={educationFields()} />}>Education</SectionHeading>
@@ -436,27 +458,14 @@ export async function CandidatePortfolio({
             ),
           },
           {
-            id: "applications",
-            label: "Application summary",
-            content: (
-              <Card className="bg-white">
-                <SectionHeading>Application Summary</SectionHeading>
-                <dl className={`mt-2 ${ruled}`}>
-                  {[
-                    ["Total applications", counts.total],
-                    ["Pending", counts.pending],
-                    ["Shortlisted", counts.shortlisted],
-                    ["Rejected", counts.rejected],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex justify-between gap-3 py-2 text-sm">
-                      <dt>{label}</dt>
-                      <dd className="font-semibold tabular-nums">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-                <Link href="/profile?section=applications" className={link}>View All Applications →</Link>
-              </Card>
-            ),
+            id: "languages",
+            label: "Language proficiency",
+            href: profileStepHref("languages", null, false),
+          },
+          {
+            id: "computer-literacy",
+            label: "Computer literacy",
+            href: profileStepHref("computer-literacy", null, false),
           },
         ]}
       />

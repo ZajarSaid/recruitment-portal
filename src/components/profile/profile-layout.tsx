@@ -7,9 +7,11 @@ export const profileSectionClassName =
 
 export function ProfileLayout({
   sections,
+  sidebarHeader,
   children,
 }: {
   sections: ReactNode;
+  sidebarHeader?: ReactNode;
   children: ReactNode;
 }) {
   const sidebarId = useId();
@@ -19,30 +21,35 @@ export function ProfileLayout({
   const toggleClass = "min-h-11 w-fit rounded-lg border border-indigo-200 px-3 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 dark:border-zinc-700 dark:text-indigo-300 dark:hover:bg-zinc-900";
 
   return (
-    <div className="min-w-0 space-y-3">
-      <button ref={mobileToggle} type="button" aria-controls={sidebarId} aria-expanded={mobileOpen}
-        onClick={() => setMobileOpen((open) => !open)} className={`${toggleClass} md:hidden`}>
-        {mobileOpen ? "Hide profile menu" : "Show profile menu"}
-      </button>
-      <button type="button" aria-controls={sidebarId} aria-expanded={desktopOpen}
-        onClick={() => setDesktopOpen((open) => !open)} className={`hidden md:inline-flex md:items-center ${toggleClass}`}>
-        {desktopOpen ? "Hide profile sidebar" : "Show profile sidebar"}
-      </button>
-      <div className={`grid min-w-0 items-start gap-5 ${desktopOpen ? "md:grid-cols-[13rem_minmax(0,1fr)] lg:grid-cols-[15rem_minmax(0,1fr)]" : ""}`}>
-        <aside id={sidebarId} className={`${mobileOpen ? "block" : "hidden"} ${desktopOpen ? "md:block" : "md:hidden"} w-full max-w-xs min-w-0 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm md:sticky md:top-4 lg:top-24 dark:border-zinc-800 dark:bg-zinc-950`}>
-          <nav
-            aria-label="Profile sections"
-            onClick={(event) => {
-              if (mobileOpen && event.target instanceof Element && event.target.closest("a, button")) {
-                setMobileOpen(false);
-                mobileToggle.current?.focus();
-              }
-            }}
-          >
-            {sections}
-          </nav>
+    <div className="min-w-0 overflow-clip rounded-2xl border border-indigo-100 bg-slate-50/90 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/70">
+      <div className="border-b border-indigo-100 bg-white px-4 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+        <button ref={mobileToggle} type="button" aria-controls={sidebarId} aria-expanded={mobileOpen}
+          onClick={() => setMobileOpen((open) => !open)} className={`${toggleClass} md:hidden`}>
+          {mobileOpen ? "Hide profile menu" : "Show profile menu"}
+        </button>
+        <button type="button" aria-controls={sidebarId} aria-expanded={desktopOpen}
+          onClick={() => setDesktopOpen((open) => !open)} className={`hidden md:inline-flex md:items-center ${toggleClass}`}>
+          {desktopOpen ? "Hide profile sidebar" : "Show profile sidebar"}
+        </button>
+      </div>
+      <div className={`grid min-w-0 ${desktopOpen ? "md:grid-cols-[13rem_minmax(0,1fr)] lg:grid-cols-[15rem_minmax(0,1fr)]" : ""}`}>
+        <aside id={sidebarId} className={`${mobileOpen ? "block" : "hidden"} ${desktopOpen ? "md:block" : "md:hidden"} min-w-0 border-b border-indigo-100 bg-white p-3 md:border-r md:border-b-0 dark:border-zinc-800 dark:bg-zinc-950`}>
+          <div className="space-y-4 md:sticky md:top-4 lg:top-24">
+            {sidebarHeader}
+            <nav
+              aria-label="Profile sections"
+              onClick={(event) => {
+                if (mobileOpen && event.target instanceof Element && event.target.closest("a, button")) {
+                  setMobileOpen(false);
+                  mobileToggle.current?.focus();
+                }
+              }}
+            >
+              {sections}
+            </nav>
+          </div>
         </aside>
-        <div className="min-w-0 space-y-5">{children}</div>
+        <div className="min-w-0 space-y-5 p-4 sm:p-6 lg:p-8">{children}</div>
       </div>
     </div>
   );

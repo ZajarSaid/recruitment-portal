@@ -8,6 +8,7 @@ import {
   startTransition,
   useState,
   type FormEvent,
+  type ReactNode,
 } from "react";
 
 import { SubmitButton } from "@/components/submit-button";
@@ -73,6 +74,7 @@ export function ProfileForm({
   incompleteNotice,
   stepIndex,
   availableStep,
+  sidebarHeader,
 }: {
   initial: ProfileFormValues | null;
   initialDocuments: ProfileDocumentInfo[];
@@ -84,6 +86,7 @@ export function ProfileForm({
   incompleteNotice: boolean;
   stepIndex: number;
   availableStep: number;
+  sidebarHeader?: ReactNode;
 }) {
   const router = useRouter();
   const selected = profileSections[stepIndex].id;
@@ -141,8 +144,9 @@ export function ProfileForm({
   const anyUploading = Object.values(uploading).some(Boolean);
 
   return (
-    <ProfileLayout sections={
+    <ProfileLayout sidebarHeader={sidebarHeader} sections={
       <ol className="grid gap-1">
+        <li><Link href="/profile" className={profileSectionClassName}>Dashboard</Link></li>
         {profileSections.map(({ id, label }, index) => (
           <li key={id} className="min-w-0">
             {index > availableStep || saving || anyUploading ? (
@@ -158,6 +162,7 @@ export function ProfileForm({
         ))}
       </ol>
     }>
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Edit profile</h1>
       {canApply ? (
         <Alert tone="success">
           Your profile meets the application requirement.{" "}

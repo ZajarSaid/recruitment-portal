@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ProfileForm } from "@/components/profile/profile-form";
+import { ProfileSidebarIdentity } from "@/components/profile/profile-sidebar-identity";
 import { requireUser } from "@/lib/dal";
 import { env } from "@/lib/env";
 import { APPLICATION_PROFILE_THRESHOLD, getProfileReadiness, isLocalProfilePhoto } from "@/lib/profile";
@@ -37,11 +37,10 @@ export default async function ProfileStepPage({ params, searchParams }: PageProp
       : null);
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6 sm:px-6 sm:py-8">
-      <Link href="/profile" className="inline-flex min-h-11 items-center text-sm font-semibold text-indigo-700 hover:underline dark:text-indigo-300">← My profile</Link>
-      <h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-zinc-50">Edit profile</h1>
+    <main className="mx-auto w-full max-w-[100rem] px-3 py-4 sm:px-5 sm:py-6">
       <ProfileForm
         key={step}
+        sidebarHeader={<ProfileSidebarIdentity name={user.name} photoSource={photoSource} />}
         initial={profile && {
           educationLevel: profile.educationLevel,
           experienceSummary: profile.experienceSummary,

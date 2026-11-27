@@ -11,6 +11,8 @@ it("switches the visible section while keeping profile completion in view", () =
         { id: "personal", label: "Personal information", content: <h2>Contact details</h2> },
         { id: "education", label: "Education", content: <h2>Qualifications</h2> },
       ]}
+      sidebarHeader={<p>Candidate name</p>}
+      overview={<h1>Candidate dashboard</h1>}
       completion={<progress aria-label="Profile completion" value={50} max={100} />}
     />,
   );
@@ -19,6 +21,8 @@ it("switches the visible section while keeping profile completion in view", () =
   expect(mobileToggle.getAttribute("aria-expanded")).toBe("false");
   fireEvent.click(mobileToggle);
   expect(mobileToggle.getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getByText("Candidate name")).toBeDefined();
+  expect(screen.getByRole("heading", { name: "Candidate dashboard" })).toBeDefined();
 
   const nav = within(screen.getByRole("navigation", { name: "Profile sections" }));
   const personal = nav.getByRole("button", { name: "Personal information" });
@@ -31,6 +35,7 @@ it("switches the visible section while keeping profile completion in view", () =
   expect(mobileToggle.getAttribute("aria-expanded")).toBe("false");
   expect(education.getAttribute("aria-current")).toBe("true");
   expect(screen.queryByRole("heading", { name: "Contact details" })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Candidate dashboard" })).toBeNull();
   expect(screen.getByRole("heading", { name: "Qualifications" })).toBeDefined();
   expect(within(screen.getByRole("complementary", { name: "Profile progress" })).getByRole("progressbar")).toBeDefined();
 
