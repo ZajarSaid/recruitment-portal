@@ -5,7 +5,9 @@ import { ProfileForm } from "@/components/profile/profile-form";
 import { ProfileSidebarIdentity } from "@/components/profile/profile-sidebar-identity";
 import { requireUser } from "@/lib/dal";
 import { env } from "@/lib/env";
+import { hasOpenVacancies } from "@/lib/jobs";
 import { APPLICATION_PROFILE_THRESHOLD, getProfileReadiness, isLocalProfilePhoto } from "@/lib/profile";
+import { IDENTITY_DOCUMENT } from "@/lib/profile-documents";
 import { firstIncompleteProfileStep, profileStepHref, PROFILE_STEPS, profileApplicationPath } from "@/lib/profile-steps";
 
 export const metadata: Metadata = {
@@ -30,6 +32,7 @@ export default async function ProfileStepPage({ params, searchParams }: PageProp
   if (stepIndex > availableStep) {
     redirect(profileStepHref(PROFILE_STEPS[availableStep].id, nextPath, incomplete));
   }
+  const openVacancies = canApply && await hasOpenVacancies();
 
   const photoSource = profile?.photoUrl ||
     (profile && isLocalProfilePhoto(profile.photoPublicId, user.id)
@@ -47,19 +50,22 @@ export default async function ProfileStepPage({ params, searchParams }: PageProp
           birthYear: profile.birthYear,
           birthMonth: profile.birthMonth,
           physicalAddress: profile.physicalAddress,
+          nidaNumber: step === "personal-details" ? profile.nidaNumber : null,
           computerLiteracy: profile.computerLiteracy,
           languages: profile.languages,
           category: profile.category,
           photoUrl: profile.photoUrl,
           photoPublicId: profile.photoPublicId,
         }}
-        initialDocuments={documents.map((document) => ({
+        initialDocuments={documents.filter(({ documentKey }) =>
+          step === "personal-details" || documentKey !== IDENTITY_DOCUMENT.key,
+        ).map((document) => ({
           id: document.id,
           documentKey: document.documentKey,
           originalFileName: document.originalFileName,
           mimeType: document.mimeType,
           fileSize: document.fileSize,
-          url: document.cloudUrl,
+          url: document.documentKey === IDENTITY_DOCUMENT.key ? null : document.cloudUrl,
         }))}
         stepIndex={stepIndex}
         availableStep={availableStep}
@@ -67,6 +73,7 @@ export default async function ProfileStepPage({ params, searchParams }: PageProp
         maxBytes={env.maxUploadBytes}
         redirectToApply={nextPath}
         canApply={canApply}
+        openVacancies={openVacancies}
         applicationThreshold={APPLICATION_PROFILE_THRESHOLD}
         incompleteNotice={incomplete}
       />

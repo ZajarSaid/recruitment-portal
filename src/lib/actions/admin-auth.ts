@@ -17,7 +17,7 @@ import { env } from "@/lib/env";
 import { flashFeedback } from "@/lib/flash-feedback";
 import { verifyPassword } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
-import { createSession, SESSION_IN_USE_MESSAGE } from "@/lib/session";
+import { createSession } from "@/lib/session";
 import { handleSignInFailure, readForSignIn } from "@/lib/sign-in-availability";
 
 const CODE_LIFETIME_MS = 10 * 60_000;
@@ -160,10 +160,6 @@ async function verifyCode(data: FormData): Promise<ActionState | string> {
     });
     return claimed.count === 1;
   });
-  if (created === "in-use") {
-    await clearChallengeCookie();
-    return { message: SESSION_IN_USE_MESSAGE };
-  }
   if (created === "rejected") {
     await prisma.adminSignInChallenge.updateMany({
       where: validChallenge,

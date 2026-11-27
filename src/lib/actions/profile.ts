@@ -11,7 +11,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import { deleteStoredUpload, storeUploadedFile } from "@/lib/cloud-storage";
 import { validateUpload } from "@/lib/uploads";
-import { findProfileDocumentSpec } from "@/lib/profile-documents";
+import { findProfileDocumentSpec, IDENTITY_DOCUMENT } from "@/lib/profile-documents";
 import {
   firstIncompleteProfileStep,
   hasRequiredProfileDocuments,
@@ -37,7 +37,7 @@ function formDataToObject(formData: FormData): Record<string, string> {
 }
 
 const stepSchemas = {
-  "personal-details": profileSchema.pick({ birthYear: true, birthMonth: true, physicalAddress: true }),
+  "personal-details": profileSchema.pick({ birthYear: true, birthMonth: true, physicalAddress: true, nidaNumber: true }),
   education: profileSchema.pick({ educationLevel: true, category: true }),
   "computer-literacy": profileSchema.pick({ computerLiteracy: true }),
   languages: profileSchema.pick({ languages: true }),
@@ -115,6 +115,12 @@ export type ProfileDocumentState =
     }
   | undefined;
 
+function deleteProfileDocumentUpload(documentKey: string, storageKey: string) {
+  return documentKey === IDENTITY_DOCUMENT.key
+    ? deleteStoredUpload(storageKey, "image", "authenticated")
+    : deleteStoredUpload(storageKey);
+}
+
 export async function uploadProfileDocumentAction(
   _prev: ProfileDocumentState,
   formData: FormData,
@@ -143,11 +149,12 @@ export async function uploadProfileDocumentAction(
     return { documentKey, message: "Please choose a file to upload." };
   }
 
-  const profile = await prisma.candidateProfile.findUnique({
+  const identityDocument = spec.key === IDENTITY_DOCUMENT.key;
+  let profile = await prisma.candidateProfile.findUnique({
     where: { userId: user.id },
     select: { id: true, category: true },
   });
-  if (!profile) {
+  if (!profile && !identityDocument) {
     return {
       documentKey,
       message:
@@ -159,6 +166,13 @@ export async function uploadProfileDocumentAction(
   if (!validation.ok) {
     return { documentKey, message: validation.message };
   }
+
+  profile ??= await prisma.candidateProfile.upsert({
+    where: { userId: user.id },
+    create: { userId: user.id },
+    update: {},
+    select: { id: true, category: true },
+  });
 
   const previous = await prisma.candidateDocument.findUnique({
     where: {
@@ -175,6 +189,7 @@ export async function uploadProfileDocumentAction(
     stored = await storeUploadedFile(validation.buffer, {
       folder: `profile-documents/${user.id}`,
       mimeType: validation.mimeType,
+      ...(identityDocument ? { resourceType: "image", deliveryType: "authenticated" } : {}),
     });
   } catch {
     return {
@@ -210,7 +225,7 @@ export async function uploadProfileDocumentAction(
       },
     });
   } catch {
-    await deleteStoredUpload(stored.reference);
+    await deleteProfileDocumentUpload(documentKey, stored.reference);
     return {
       documentKey,
       message: "Failed to save the document. Please try again.",
@@ -218,7 +233,7 @@ export async function uploadProfileDocumentAction(
   }
 
   if (previous && previous.storageKey !== stored.reference) {
-    await deleteStoredUpload(previous.storageKey);
+    await deleteProfileDocumentUpload(documentKey, previous.storageKey);
   }
 
   revalidatePath("/profile", "layout");
@@ -234,7 +249,7 @@ export async function uploadProfileDocumentAction(
       originalFileName: document.originalFileName,
       mimeType: document.mimeType,
       fileSize: document.fileSize,
-      url: document.cloudUrl,
+      url: identityDocument ? null : document.cloudUrl,
     },
   };
 }
@@ -280,7 +295,7 @@ export async function removeProfileDocumentAction(
   }
 
   await prisma.candidateDocument.delete({ where: { id: document.id } });
-  await deleteStoredUpload(document.storageKey);
+  await deleteProfileDocumentUpload(documentKey, document.storageKey);
 
   revalidatePath("/profile", "layout");
   revalidatePath("/dashboard");

@@ -99,6 +99,7 @@ model CandidateProfile {
   birthYear        Int?
   birthMonth       Int?
   physicalAddress  String?                @db.VarChar(500)
+  nidaNumber       String?                @db.VarChar(20)
   phone            String?                @db.VarChar(40)
   location         String?                @db.VarChar(160)
   headline         String?                @db.VarChar(160)

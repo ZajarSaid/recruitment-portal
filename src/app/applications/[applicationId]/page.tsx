@@ -41,7 +41,7 @@ export default async function ApplicationStatusPage({
   const reason = application.rejectionReason;
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-12">
+    <main className="mx-auto max-w-3xl px-4 py-12">
       <Link
         href="/profile?section=applications"
         className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
@@ -85,6 +85,14 @@ export default async function ApplicationStatusPage({
             </p>
           </div>
         )}
+      </Card>
+      <Card className="mt-4 p-5">
+        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          Job description
+        </h2>
+        <p className="mt-2 whitespace-pre-line wrap-anywhere text-sm leading-6 text-zinc-700 dark:text-zinc-300">
+          {application.jobDescription}
+        </p>
       </Card>
     </main>
   );

@@ -71,6 +71,7 @@ export async function storeUploadedFile(
     folder: string;
     mimeType: string;
     resourceType?: "auto" | "image" | "video" | "raw";
+    deliveryType?: "upload" | "authenticated";
   },
 ): Promise<StoredFile> {
   if (!isCloudinaryConfigured()) {
@@ -82,6 +83,7 @@ export async function storeUploadedFile(
   const result = await uploadBuffer(buffer, {
     folder: file.folder,
     resourceType: file.resourceType ?? "auto",
+    ...(file.deliveryType ? { deliveryType: file.deliveryType } : {}),
   });
   return {
     reference: toCloudReference(result.public_id),
@@ -97,9 +99,10 @@ export async function storeUploadedFile(
 export async function deleteStoredUpload(
   reference: string,
   resourceType: "image" | "video" | "raw" = "image",
+  deliveryType?: "upload" | "authenticated",
 ): Promise<void> {
   if (isCloudReference(reference)) {
-    await deleteCloudAsset(fromCloudReference(reference), resourceType);
+    await deleteCloudAsset(fromCloudReference(reference), resourceType, deliveryType);
     return;
   }
   await deleteStoredFile(reference);

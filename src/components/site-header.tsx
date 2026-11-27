@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LogoutButton } from "@/components/logout-button";
+import { SessionMonitor } from "@/components/auth/session-monitor";
+import { ADMIN_SIGN_IN_PATH } from "@/lib/admin-access";
 import { getCurrentUser } from "@/lib/dal";
 import { isJobManager } from "@/lib/navigation";
 import { ROLE_LABELS } from "@/lib/roles";
@@ -15,6 +17,7 @@ export async function SiteHeader() {
 
   return (
     <header className="relative z-10 border-b border-indigo-100 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 lg:sticky lg:top-0">
+      {user && <SessionMonitor signInPath={user.role === "ADMIN" ? ADMIN_SIGN_IN_PATH : "/login"} />}
       <a
         href="#page-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-2 focus:z-20 focus:rounded-lg focus:bg-indigo-700 focus:px-4 focus:py-3 focus:text-white"

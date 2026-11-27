@@ -32,6 +32,7 @@ import {
   COMPUTER_LITERACY_LEVELS,
   EDUCATION_LEVEL_LABELS,
   EDUCATION_LEVELS,
+  IDENTITY_DOCUMENT,
   JOB_CATEGORIES,
   JOB_CATEGORY_LABELS,
   birthYearRange,
@@ -44,6 +45,7 @@ export type ProfileFormValues = {
   birthYear: number | null;
   birthMonth: number | null;
   physicalAddress: string | null;
+  nidaNumber: string | null;
   computerLiteracy: string | null;
   languages: string | null;
   category: JobCategoryValue;
@@ -70,6 +72,7 @@ export function ProfileForm({
   maxBytes,
   redirectToApply,
   canApply,
+  openVacancies,
   applicationThreshold,
   incompleteNotice,
   stepIndex,
@@ -82,6 +85,7 @@ export function ProfileForm({
   maxBytes: number;
   redirectToApply: string | null;
   canApply: boolean;
+  openVacancies: boolean;
   applicationThreshold: number;
   incompleteNotice: boolean;
   stepIndex: number;
@@ -92,6 +96,7 @@ export function ProfileForm({
   const selected = profileSections[stepIndex].id;
   const nextStep = profileSections[stepIndex + 1];
   const previousStep = profileSections[stepIndex - 1];
+  const showStepStatus = stepIndex === availableStep && Boolean(nextStep);
   const href = (step: typeof selected) => profileStepHref(step, redirectToApply, incompleteNotice);
   const [state, action, saving] = useFeedbackAction(
     async (previous, data) => {
@@ -163,14 +168,15 @@ export function ProfileForm({
       </ol>
     }>
       <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Edit profile</h1>
-      {canApply ? (
+      {canApply && openVacancies && (
         <Alert tone="success">
           Your profile meets the application requirement.{" "}
           <Link href={redirectToApply ?? "/jobs"} className="font-semibold underline">
             {redirectToApply ? "Continue to your application" : "Browse vacancies"}
           </Link>
         </Alert>
-      ) : incompleteNotice && (
+      )}
+      {!canApply && incompleteNotice && (
         <Alert tone="info">
           Bring your profile completion above {applicationThreshold}% before applying.
         </Alert>
@@ -180,20 +186,24 @@ export function ProfileForm({
         className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
         noValidate
       >
-        <div className="scroll-mt-24 border-b border-zinc-200 bg-zinc-50 px-5 py-4 sm:px-6 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-            Step {stepIndex + 1} of {profileSections.length}
-          </p>
-          {nextStep && stepIndex === availableStep && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">Complete this step and save to unlock the next one.</p>}
-          <div aria-hidden="true" className="mt-2 flex gap-1">
-            {profileSections.map(({ id }, index) => (
-              <span
-                key={id}
-                className={`h-1.5 flex-1 rounded-full ${index <= stepIndex ? "bg-indigo-600 dark:bg-indigo-400" : "bg-indigo-100 dark:bg-zinc-800"}`}
-              />
-            ))}
+        {showStepStatus && (
+          <div className="scroll-mt-24 border-b border-zinc-200 bg-zinc-50 px-5 py-4 sm:px-6 dark:border-zinc-800 dark:bg-zinc-900">
+            <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+              Step {stepIndex + 1} of {profileSections.length}
+            </p>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+              Complete this step and save to unlock the next one.
+            </p>
+            <div aria-hidden="true" className="mt-2 flex gap-1">
+              {profileSections.map(({ id }, index) => (
+                <span
+                  key={id}
+                  className={`h-1.5 flex-1 rounded-full ${index <= stepIndex ? "bg-indigo-600 dark:bg-indigo-400" : "bg-indigo-100 dark:bg-zinc-800"}`}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         {selected === "personal-details" && (
           <section className={sectionClassName}>
             <h2 className={sectionHeadingClassName}>Personal details</h2>
@@ -271,6 +281,34 @@ export function ProfileForm({
                 placeholder="Street, ward, district, region"
               />
             </Field>
+            <Field
+              label="NIDA number (optional)"
+              htmlFor="nidaNumber"
+              error={state?.errors?.nidaNumber}
+              hint="Enter 20 digits, with or without hyphens."
+            >
+              <TextInput
+                id="nidaNumber"
+                name="nidaNumber"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={23}
+                defaultValue={initial?.nidaNumber ?? ""}
+                placeholder="19900312-78996-66554-80"
+              />
+            </Field>
+            <div className="rounded-xl border border-zinc-200 px-4 dark:border-zinc-800">
+              <ProfileDocumentField
+                document={IDENTITY_DOCUMENT}
+                initial={documents[IDENTITY_DOCUMENT.key] ?? null}
+                accept={DOCUMENT_ACCEPT_ATTRIBUTE}
+                canUpload={!saving}
+                onChange={handleDocumentChange}
+              />
+              <p className="pb-3 text-xs text-zinc-500 dark:text-zinc-400">
+                PDF, JPEG, or PNG up to {formatFileSize(maxBytes)}.
+              </p>
+            </div>
           </section>
         )}
 

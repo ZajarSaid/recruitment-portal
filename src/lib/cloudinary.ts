@@ -22,6 +22,7 @@ export type UploadOptions = {
   folder?: string;
   /** Restrict the resource type; `auto` (default) detects from the file. */
   resourceType?: "auto" | "image" | "video" | "raw";
+  deliveryType?: "upload" | "authenticated";
 };
 
 /**
@@ -32,11 +33,11 @@ export function uploadBuffer(
   buffer: Buffer,
   options: UploadOptions = {},
 ): Promise<UploadApiResponse> {
-  const { folder, resourceType = "auto" } = options;
+  const { folder, resourceType = "auto", deliveryType } = options;
   return new Promise((resolve, reject) => {
     cloudinary.uploader
       .upload_stream(
-        { resource_type: resourceType, ...(folder ? { folder } : {}) },
+        { resource_type: resourceType, ...(folder ? { folder } : {}), ...(deliveryType ? { type: deliveryType } : {}) },
         (error, result) => {
           if (error || !result) {
             reject(error ?? new Error("Cloudinary returned no result."));
@@ -56,10 +57,12 @@ export function uploadBuffer(
 export async function deleteCloudAsset(
   publicId: string,
   resourceType: "image" | "video" | "raw" = "image",
+  deliveryType?: "upload" | "authenticated",
 ): Promise<void> {
   try {
     await cloudinary.uploader.destroy(publicId, {
       resource_type: resourceType,
+      ...(deliveryType ? { type: deliveryType } : {}),
       invalidate: true,
     });
   } catch {

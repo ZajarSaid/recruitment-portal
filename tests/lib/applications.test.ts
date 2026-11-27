@@ -23,7 +23,7 @@ async function setup(
 }
 
 describe("getCandidateApplicationStatus", () => {
-  it("returns the job title and current status for the owning candidate", async () => {
+  it("returns the job title, description, and current status for the owning candidate", async () => {
     const { candidate, job, application } = await setup("SHORTLISTED");
 
     const result = await getCandidateApplicationStatus(
@@ -35,6 +35,7 @@ describe("getCandidateApplicationStatus", () => {
       id: application.id,
       status: "SHORTLISTED",
       jobTitle: job.title,
+      jobDescription: job.description,
       rejectionReason: null,
     });
   });

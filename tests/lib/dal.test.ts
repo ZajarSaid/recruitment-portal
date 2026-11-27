@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { GET as checkBrowserSession } from "@/app/api/session/route";
 import { getCurrentUser, requireRole, requireUser } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { resetRateLimits } from "@/lib/rate-limit";
@@ -116,20 +117,28 @@ async function encryptAdminToken(userId: string): Promise<string> {
 }
 
 describe("session helpers", () => {
-  it("rejects a second browser until the first browser signs out", async () => {
+  it("replaces the first browser's session when a second browser signs in", async () => {
     const user = await createTestUser({ role: "CANDIDATE" });
     const payload = { userId: user.id, role: "CANDIDATE" as const };
     expect(await createSession(payload)).toBe("created");
     const firstCookie = getCookie(SESSION_COOKIE_NAME)!;
 
     resetCookies();
-    expect(await createSession(payload)).toBe("in-use");
-    expect(getCookie(SESSION_COOKIE_NAME)).toBeUndefined();
+    expect(await createSession(payload)).toBe("created");
+    const secondCookie = getCookie(SESSION_COOKIE_NAME)!;
+    expect(secondCookie).not.toBe(firstCookie);
+    expect(await prisma.userSession.count({ where: { userId: user.id } })).toBe(1);
 
     setCookie(SESSION_COOKIE_NAME, firstCookie);
-    expect(await getSession()).not.toBeNull();
+    expect(await getSession()).toBeNull();
+    const revoked = await checkBrowserSession();
+    expect(revoked.status).toBe(401);
+    expect(revoked.headers.get("Cache-Control")).toBe("private, no-store");
     await deleteSession();
-    expect(await createSession(payload)).toBe("created");
+
+    setCookie(SESSION_COOKIE_NAME, secondCookie);
+    expect((await checkBrowserSession()).status).toBe(204);
+    expect(await getSession()).toEqual(payload);
   });
 
   it.each([
@@ -159,6 +168,9 @@ describe("session helpers", () => {
       data: { lastSeenAt: earlier },
     });
     const original = await prisma.userSession.findFirstOrThrow({ where });
+    expect(await getSession({ touch: false })).not.toBeNull();
+    const checked = await prisma.userSession.findFirstOrThrow({ where });
+    expect(checked.lastSeenAt).toEqual(original.lastSeenAt);
     expect(await getSession()).not.toBeNull();
     const current = await prisma.userSession.findFirstOrThrow({ where });
     expect(current.lastSeenAt.getTime()).toBeGreaterThan(earlier.getTime());

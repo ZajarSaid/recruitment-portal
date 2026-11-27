@@ -19,7 +19,7 @@ import { flashFeedback } from "@/lib/flash-feedback";
 import { roleHome } from "@/lib/navigation";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
-import { createSession, deleteSession, SESSION_IN_USE_MESSAGE } from "@/lib/session";
+import { createSession, deleteSession } from "@/lib/session";
 import { handleSignInFailure, readForSignIn } from "@/lib/sign-in-availability";
 
 function formValue(formData: FormData, key: string): string {
@@ -207,8 +207,7 @@ async function signIn(formData: FormData): Promise<ActionState | string> {
     if (!profile) destination = "/profile";
   }
 
-  const session = await createSession({ userId: user.id, role: user.role });
-  if (session === "in-use") return { message: SESSION_IN_USE_MESSAGE };
+  await createSession({ userId: user.id, role: user.role });
   await flashFeedback("signed-in");
   return destination;
 }

@@ -108,6 +108,13 @@ export type CategoryDocumentSpec = {
   required: boolean;
 };
 
+export const IDENTITY_DOCUMENT: CategoryDocumentSpec = {
+  key: "PROFILE_IDENTITY_DOCUMENT",
+  label: "Identity document",
+  description: "Upload one NIDA ID card, driving licence, or passport.",
+  required: false,
+};
+
 /**
  * The fixed, predefined list of supporting documents per candidate category.
  * `GENERAL` candidates provide no extra documents beyond the common profile
@@ -218,7 +225,7 @@ export const OPTIONAL_PORTFOLIO_DOCUMENTS: readonly CategoryDocumentSpec[] = [
 
 export const ALL_PROFILE_DOCUMENT_KEYS: string[] = [
   ...new Set(
-    [...Object.values(CATEGORY_DOCUMENT_LISTS).flat(), ...OPTIONAL_PORTFOLIO_DOCUMENTS]
+    [...Object.values(CATEGORY_DOCUMENT_LISTS).flat(), ...OPTIONAL_PORTFOLIO_DOCUMENTS, IDENTITY_DOCUMENT]
       .map((spec) => spec.key),
   ),
 ];
@@ -227,6 +234,7 @@ export const ALL_PROFILE_DOCUMENT_KEYS: string[] = [
 export function findProfileDocumentSpec(
   key: string,
 ): CategoryDocumentSpec | undefined {
+  if (key === IDENTITY_DOCUMENT.key) return IDENTITY_DOCUMENT;
   const optional = OPTIONAL_PORTFOLIO_DOCUMENTS.find((spec) => spec.key === key);
   if (optional) return optional;
   for (const specs of Object.values(CATEGORY_DOCUMENT_LISTS)) {

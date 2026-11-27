@@ -17,7 +17,7 @@ import { profileStepHref } from "@/lib/profile-steps";
 import { APPLICATION_PROFILE_THRESHOLD, missingRequiredProfileDocuments, type CandidateProfileWithDocuments } from "@/lib/profile";
 import {
   BIRTH_MONTH_LABELS, COMPUTER_LITERACY_LABELS, EDUCATION_LEVEL_LABELS,
-  findProfileDocumentSpec, getCategoryDocumentList, JOB_CATEGORY_LABELS, OPTIONAL_PORTFOLIO_DOCUMENTS,
+  findProfileDocumentSpec, getCategoryDocumentList, IDENTITY_DOCUMENT, JOB_CATEGORY_LABELS, OPTIONAL_PORTFOLIO_DOCUMENTS,
 } from "@/lib/profile-documents";
 
 const muted = "text-sm leading-relaxed text-slate-600 dark:text-zinc-400";
@@ -138,7 +138,9 @@ export async function CandidatePortfolio({
   const employment = records?.employment ?? [];
   const skills = records?.skills ?? [];
   const certifications = records?.certifications ?? [];
-  const documents = profile?.documents ?? [];
+  const documents = (profile?.documents ?? []).filter(({ documentKey }) =>
+    documentKey !== IDENTITY_DOCUMENT.key,
+  );
   const category = profile?.category ?? "GENERAL";
   const categorySpecs = [...getCategoryDocumentList(category), ...OPTIONAL_PORTFOLIO_DOCUMENTS];
   const additionalSpecs = documents
@@ -272,6 +274,9 @@ export async function CandidatePortfolio({
                   {profile?.languages && <DisplayField label="Languages" value={profile.languages} />}
                   {profile?.computerLiteracy && <DisplayField label="Computer literacy" value={COMPUTER_LITERACY_LABELS[profile.computerLiteracy]} />}
                 </dl>
+                <Link href={profileStepHref("personal-details", null, false)} className={`mt-4 ${link}`}>
+                  Manage NIDA number and identity document
+                </Link>
                 <details className="mt-4">
                   <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-indigo-700 dark:text-indigo-300">Manage profile photo</summary>
                   <ProfilePhotoField

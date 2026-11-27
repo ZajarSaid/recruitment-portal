@@ -33,6 +33,14 @@ export function isAcceptingApplications(
   return getJobAvailability(job, now) === "OPEN";
 }
 
+export async function hasOpenVacancies(now = new Date()): Promise<boolean> {
+  const job = await prisma.job.findFirst({
+    where: { status: "PUBLISHED", opensAt: { lte: now }, closesAt: { gte: now } },
+    select: { id: true },
+  });
+  return job !== null;
+}
+
 export function canManageJob(
   user: Pick<CurrentUser, "id" | "role">,
   job: { createdById: string; recruiterId: string | null },

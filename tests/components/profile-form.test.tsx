@@ -22,6 +22,7 @@ const props = {
   redirectToApply: "/jobs/job-1/apply",
   applicationThreshold: 60,
   canApply: false,
+  openVacancies: false,
   incompleteNotice: true,
 };
 
@@ -37,6 +38,7 @@ it("renders only the current step and saves its fields before navigating", async
         birthYear: 1995,
         birthMonth: 6,
         physicalAddress: "Example address",
+        nidaNumber: null,
         computerLiteracy: "INTERMEDIATE",
         languages: "Kiswahili",
         category: "GENERAL",
@@ -46,11 +48,13 @@ it("renders only the current step and saves its fields before navigating", async
       stepIndex={3}
       availableStep={4}
       canApply
+      openVacancies
     />,
   );
 
   const languages = screen.getByRole<HTMLInputElement>("textbox", { name: "Languages you speak" });
   expect(languages.value).toBe("Kiswahili");
+  expect(screen.queryByText("Step 4 of 5")).toBeNull();
   expect(screen.queryByLabelText("Highest education level")).toBeNull();
   expect(screen.getByRole("link", { name: "Back" }).getAttribute("href"))
     .toBe("/profile/edit/computer-literacy?next=%2Fjobs%2Fjob-1%2Fapply&incomplete=1");
@@ -69,6 +73,14 @@ it("renders only the current step and saves its fields before navigating", async
   expect(submitted?.get("languages")).toBe("Kiswahili (fluent), English");
   expect(submitted?.has("educationLevel")).toBe(false);
   expect(push).toHaveBeenCalledWith("/profile/edit/experience?next=%2Fjobs%2Fjob-1%2Fapply&incomplete=1");
+});
+
+it("hides the application-ready alert for an eligible candidate when no vacancies are open", () => {
+  render(<ProfileForm {...props} stepIndex={0} availableStep={0} canApply redirectToApply={null} />);
+
+  expect(screen.queryByText("Your profile meets the application requirement.")).toBeNull();
+  expect(screen.queryByRole("link", { name: "Browse vacancies" })).toBeNull();
+  expect(screen.queryByText(/Bring your profile completion/)).toBeNull();
 });
 
 it("keeps future sections locked and stays on the current page after a failed save", async () => {

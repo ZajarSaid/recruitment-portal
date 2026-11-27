@@ -22,12 +22,13 @@ export type CandidateApplicationStatus = {
   id: string;
   status: ApplicationStatus;
   jobTitle: string;
+  jobDescription: string;
   rejectionReason: string | null;
 };
 
 /**
  * Loads the minimal, candidate-facing view of a single application: the job
- * title and its current status only. Returns `null` when the application does
+ * title and description alongside the current status. Returns `null` when the application does
  * not exist or does not belong to the given candidate, so callers never leak
  * another candidate's application.
  *
@@ -43,7 +44,7 @@ export async function getCandidateApplicationStatus(
     select: {
       id: true,
       status: true,
-      job: { select: { title: true } },
+      job: { select: { title: true, description: true } },
     },
   });
   if (!application) return null;
@@ -62,6 +63,7 @@ export async function getCandidateApplicationStatus(
     id: application.id,
     status: application.status as ApplicationStatus,
     jobTitle: application.job.title,
+    jobDescription: application.job.description,
     rejectionReason,
   };
 }
