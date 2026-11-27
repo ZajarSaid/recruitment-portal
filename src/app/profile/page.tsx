@@ -4,16 +4,16 @@ import type { ReactNode } from "react";
 
 import { CandidatePortfolio } from "@/components/profile/candidate-portfolio";
 import DashboardApplications from "@/components/dashboard/applications-section";
-import { ProfileForm } from "@/components/profile/profile-form";
+import { redirect } from "next/navigation";
 import { Card } from "@/components/ui";
 import { requireUser } from "@/lib/dal";
 import { env } from "@/lib/env";
 import { formatDate } from "@/lib/format";
 import {
-  APPLICATION_PROFILE_THRESHOLD,
   getProfileReadiness,
   isLocalProfilePhoto,
 } from "@/lib/profile";
+import { firstIncompleteProfileStep, profileStepHref, PROFILE_STEPS, profileApplicationPath } from "@/lib/profile-steps";
 import { ROLE_LABELS } from "@/lib/roles";
 
 export const metadata: Metadata = {
@@ -117,55 +117,20 @@ export default async function ProfilePage({ searchParams }: PageProps<"/profile"
     );
   }
 
-  const nextPath =
-    typeof params.next === "string" && /^\/jobs\/[\w-]+\/apply$/.test(params.next)
-      ? params.next
-      : null;
+  const nextPath = profileApplicationPath(params.next);
   const { profile, percentage, canApply } = await getProfileReadiness(user);
+
+  if (params.section === "edit" || nextPath || params.incomplete === "1") {
+    const available = firstIncompleteProfileStep(profile, profile?.documents ?? []);
+    const requested = PROFILE_STEPS.findIndex(({ id }) => id === params.step);
+    const step = PROFILE_STEPS[requested < 0 ? available : Math.min(requested, available)];
+    redirect(profileStepHref(step.id, nextPath, params.incomplete === "1"));
+  }
+
   const photoSource = profile?.photoUrl ||
     (profile && isLocalProfilePhoto(profile.photoPublicId, user.id)
       ? `/profile/photo?v=${encodeURIComponent(profile.photoPublicId ?? "")}`
       : null);
-  const documents = profile?.documents ?? [];
-
-  if (params.section === "edit" || nextPath || params.incomplete === "1") {
-    return (
-      <main className={pageClass}>
-        <Link href="/profile" className={linkClass}>← My profile</Link>
-        <h1 className={titleClass}>Edit profile</h1>
-        <ProfileForm
-          key={typeof params.step === "string" ? params.step : undefined}
-          initial={profile && {
-            educationLevel: profile.educationLevel,
-            experienceSummary: profile.experienceSummary,
-            birthYear: profile.birthYear,
-            birthMonth: profile.birthMonth,
-            physicalAddress: profile.physicalAddress,
-            computerLiteracy: profile.computerLiteracy,
-            languages: profile.languages,
-            category: profile.category,
-            photoUrl: profile.photoUrl,
-            photoPublicId: profile.photoPublicId,
-          }}
-          initialDocuments={documents.map((document) => ({
-            id: document.id,
-            documentKey: document.documentKey,
-            originalFileName: document.originalFileName,
-            mimeType: document.mimeType,
-            fileSize: document.fileSize,
-            url: document.cloudUrl,
-          }))}
-          initialSection={typeof params.step === "string" ? params.step : undefined}
-          savedPhotoSource={photoSource}
-          maxBytes={env.maxUploadBytes}
-          redirectToApply={nextPath}
-          canApply={canApply}
-          applicationThreshold={APPLICATION_PROFILE_THRESHOLD}
-          incompleteNotice={params.incomplete === "1" && !canApply}
-        />
-      </main>
-    );
-  }
 
   return (
     <CandidatePortfolio

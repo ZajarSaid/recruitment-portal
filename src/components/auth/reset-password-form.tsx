@@ -4,8 +4,9 @@ import { useFeedbackAction } from "@/components/action-feedback";
 
 import Link from "next/link";
 
+import { PasswordInput } from "@/components/auth/password-input";
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, Field, TextInput } from "@/components/ui";
+import { Alert, Field } from "@/components/ui";
 import { resetPasswordAction } from "@/lib/actions/auth";
 
 export function ResetPasswordForm({ token }: { token: string }) {
@@ -25,10 +26,10 @@ export function ResetPasswordForm({ token }: { token: string }) {
         error={state?.errors?.password}
         hint="At least 8 characters with at least one letter and one number."
       >
-        <TextInput
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
+          placeholder="Enter a new password"
           autoComplete="new-password"
           required
         />
@@ -39,10 +40,11 @@ export function ResetPasswordForm({ token }: { token: string }) {
         htmlFor="confirmPassword"
         error={state?.errors?.confirmPassword}
       >
-        <TextInput
+        <PasswordInput
           id="confirmPassword"
           name="confirmPassword"
-          type="password"
+          toggleLabel="password confirmation"
+          placeholder="Re-enter your password"
           autoComplete="new-password"
           required
         />

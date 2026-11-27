@@ -93,7 +93,7 @@ export async function saveProfileAction(
     return { message: "Could not save your profile. Please try again." };
   }
 
-  revalidatePath("/profile");
+  revalidatePath("/profile", "layout");
   revalidatePath("/dashboard");
 
   return { ok: true, message: "Profile saved." };
@@ -221,7 +221,7 @@ export async function uploadProfileDocumentAction(
     await deleteStoredUpload(previous.storageKey);
   }
 
-  revalidatePath("/profile");
+  revalidatePath("/profile", "layout");
   revalidatePath("/dashboard");
 
   return {
@@ -282,7 +282,7 @@ export async function removeProfileDocumentAction(
   await prisma.candidateDocument.delete({ where: { id: document.id } });
   await deleteStoredUpload(document.storageKey);
 
-  revalidatePath("/profile");
+  revalidatePath("/profile", "layout");
   revalidatePath("/dashboard");
 
   return { ok: true, documentKey, document: null, message: "Removed." };

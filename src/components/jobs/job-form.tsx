@@ -36,6 +36,7 @@ export function JobForm({ job }: { job?: JobFormValues }) {
       <Field label="Job title" htmlFor="title" error={state?.errors?.title}>
         <TextInput
           id="title"
+          placeholder="e.g. Registered nurse"
           name="title"
           defaultValue={job?.title}
           required
@@ -50,6 +51,7 @@ export function JobForm({ job }: { job?: JobFormValues }) {
         >
           <TextInput
             id="department"
+            placeholder="e.g. Outpatient services"
             name="department"
             defaultValue={job?.department}
             required
@@ -62,6 +64,7 @@ export function JobForm({ job }: { job?: JobFormValues }) {
         >
           <TextInput
             id="location"
+            placeholder="e.g. Dar es Salaam"
             name="location"
             defaultValue={job?.location}
             required
@@ -119,6 +122,7 @@ export function JobForm({ job }: { job?: JobFormValues }) {
       >
         <TextArea
           id="description"
+          placeholder="Describe the role and its main responsibilities"
           name="description"
           rows={6}
           defaultValue={job?.description}
@@ -133,6 +137,7 @@ export function JobForm({ job }: { job?: JobFormValues }) {
       >
         <TextArea
           id="qualifications"
+          placeholder="List the required qualifications, skills, and experience"
           name="qualifications"
           rows={6}
           defaultValue={job?.qualifications}

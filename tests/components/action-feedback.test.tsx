@@ -72,7 +72,7 @@ it("shows the successful logout notification on the sign-in page", () => {
   expect(document.cookie).not.toContain(FEEDBACK_COOKIE);
 });
 
-it("dismisses success and error toasts after one second", () => {
+it("dismisses success and error toasts after 4.5 seconds", () => {
   vi.useFakeTimers();
   try {
     render(<ToastViewport />);
@@ -80,7 +80,7 @@ it("dismisses success and error toasts after one second", () => {
       notifyAction("Saved.", true);
       notifyAction("Upload failed.", false);
     });
-    act(() => vi.advanceTimersByTime(999));
+    act(() => vi.advanceTimersByTime(4499));
     expect(screen.getByRole("status").textContent).toContain("Saved.");
     expect(screen.getByRole("alert").textContent).toContain("Upload failed.");
     act(() => vi.advanceTimersByTime(1));

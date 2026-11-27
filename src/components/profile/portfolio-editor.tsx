@@ -100,13 +100,13 @@ function EditorForm({
               <Field label={label} htmlFor={inputId} error={error}>
                 {options ? (
                   <Select id={inputId} name={name} defaultValue={defaultValue} required={required}>
-                    <option value="">Select an option</option>
+                    <option value="">Select {label.toLowerCase()}</option>
                     {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </Select>
                 ) : type === "textarea" ? (
-                  <TextArea id={inputId} name={name} defaultValue={defaultValue} maxLength={maxLength} rows={4} required={required} />
+                  <TextArea id={inputId} name={name} placeholder={`Enter ${label.toLowerCase()}`} defaultValue={defaultValue} maxLength={maxLength} rows={4} required={required} />
                 ) : (
-                  <TextInput id={inputId} name={name} type={type ?? "text"} defaultValue={defaultValue} maxLength={maxLength} required={required} />
+                  <TextInput id={inputId} name={name} placeholder={type === "date" ? undefined : `Enter ${label.toLowerCase()}`} type={type ?? "text"} defaultValue={defaultValue} maxLength={maxLength} required={required} />
                 )}
               </Field>
             </div>

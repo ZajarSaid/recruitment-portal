@@ -30,6 +30,7 @@ export function ForgotPasswordForm() {
       <Field label="Email" htmlFor="email" error={state?.errors?.email}>
         <TextInput
           id="email"
+          placeholder="you@example.com"
           name="email"
           type="email"
           autoComplete="email"

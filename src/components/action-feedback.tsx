@@ -15,7 +15,7 @@ import type { ActionState } from "@/lib/definitions";
 type Feedback = { message: string; ok: boolean };
 const FEEDBACK_EVENT = "portal-action-feedback";
 const CONFIRM_EVENT = "portal-action-confirmation";
-const TOAST_DURATION_MS = 1000;
+const TOAST_DURATION_MS = 4500;
 type Confirmation = { message: string; label: string; run: () => void };
 const confirmedForms = new WeakSet<HTMLFormElement>();
 
@@ -87,7 +87,7 @@ export function ToastViewport() {
     function handle(event: Event) {
       const id = ++serial.current;
       const feedback = (event as CustomEvent<Feedback>).detail;
-      setItems((previous) => [...previous.slice(-2), { ...feedback, id }]);
+      setItems((previous) => [...previous, { ...feedback, id }]);
       const timer = setTimeout(() => {
         timers.delete(timer);
         setItems((previous) => previous.filter((item) => item.id !== id));

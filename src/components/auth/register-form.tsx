@@ -4,6 +4,7 @@ import { useFeedbackAction } from "@/components/action-feedback";
 
 import Link from "next/link";
 
+import { PasswordInput } from "@/components/auth/password-input";
 import { SubmitButton } from "@/components/submit-button";
 import { Field, TextInput } from "@/components/ui";
 import { registerAction } from "@/lib/actions/auth";
@@ -17,6 +18,7 @@ export function RegisterForm() {
       <Field label="Full name" htmlFor="name" error={state?.errors?.name}>
         <TextInput
           id="name"
+          placeholder="Enter your full name"
           name="name"
           autoComplete="name"
           required
@@ -26,6 +28,7 @@ export function RegisterForm() {
       <Field label="Email" htmlFor="email" error={state?.errors?.email}>
         <TextInput
           id="email"
+          placeholder="you@example.com"
           name="email"
           type="email"
           autoComplete="email"
@@ -39,10 +42,10 @@ export function RegisterForm() {
         error={state?.errors?.password}
         hint="At least 8 characters with at least one letter and one number."
       >
-        <TextInput
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
+          placeholder="Enter a new password"
           autoComplete="new-password"
           required
         />
@@ -53,10 +56,11 @@ export function RegisterForm() {
         htmlFor="confirmPassword"
         error={state?.errors?.confirmPassword}
       >
-        <TextInput
+        <PasswordInput
           id="confirmPassword"
           name="confirmPassword"
-          type="password"
+          toggleLabel="password confirmation"
+          placeholder="Re-enter your password"
           autoComplete="new-password"
           required
         />

@@ -60,7 +60,7 @@ export async function uploadProfilePhotoAction(
       create: { userId: user.id, ...photo },
       update: photo,
     });
-    revalidatePath("/profile");
+    revalidatePath("/profile", "layout");
     return {
       ok: true,
       url: stored.url,
@@ -84,6 +84,6 @@ export async function removeProfilePhotoAction() {
     where: { userId: user.id },
     data: { photoUrl: null, photoPublicId: null },
   });
-  revalidatePath("/profile");
+  revalidatePath("/profile", "layout");
   return { ok: true };
 }

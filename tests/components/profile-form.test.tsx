@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
 import { ProfileForm } from "@/components/profile/profile-form";
 import { saveProfileAction } from "@/lib/actions/profile";
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/lib/actions/profile", () => ({ saveProfileAction: vi.fn() }));
 vi.mock("@/components/profile/profile-document-field", () => ({
   ProfileDocumentField: () => null,
@@ -13,13 +15,22 @@ vi.mock("@/components/applications/profile-photo-field", () => ({
   ProfilePhotoField: () => null,
 }));
 
-it("opens the requested edit section and preserves edits when switching sections", async () => {
-  vi.mocked(saveProfileAction).mockResolvedValue({
-    ok: true,
-    message: "Profile saved.",
-  });
+const props = {
+  initial: null,
+  initialDocuments: [],
+  maxBytes: 1024,
+  redirectToApply: "/jobs/job-1/apply",
+  applicationThreshold: 60,
+  canApply: false,
+  incompleteNotice: true,
+};
+
+it("renders only the current step and saves its fields before navigating", async () => {
+  push.mockClear();
+  vi.mocked(saveProfileAction).mockResolvedValue({ ok: true, message: "Profile saved." });
   render(
     <ProfileForm
+      {...props}
       initial={{
         educationLevel: "BACHELOR",
         experienceSummary: null,
@@ -32,89 +43,52 @@ it("opens the requested edit section and preserves edits when switching sections
         photoUrl: null,
         photoPublicId: null,
       }}
-      initialDocuments={[]}
-      maxBytes={1024}
-      redirectToApply={null}
-      canApply={false}
-      applicationThreshold={60}
-      incompleteNotice={false}
-      initialSection="languages"
+      stepIndex={3}
+      availableStep={4}
+      canApply
     />,
   );
 
-  const nav = within(
-    screen.getByRole("navigation", { name: "Profile sections" }),
-  );
-  expect(screen.getByRole("heading", { name: "Language proficiency" })).toBeDefined();
-  const languages = screen.getByRole<HTMLInputElement>("textbox", {
-    name: "Languages you speak",
-  });
+  const languages = screen.getByRole<HTMLInputElement>("textbox", { name: "Languages you speak" });
   expect(languages.value).toBe("Kiswahili");
-  fireEvent.change(languages, {
-    target: { value: "Kiswahili (fluent), English" },
+  expect(screen.queryByLabelText("Highest education level")).toBeNull();
+  expect(screen.getByRole("link", { name: "Back" }).getAttribute("href"))
+    .toBe("/profile/edit/computer-literacy?next=%2Fjobs%2Fjob-1%2Fapply&incomplete=1");
+  expect(screen.getByRole("link", { name: "Experience" }).getAttribute("href"))
+    .toBe("/profile/edit/experience?next=%2Fjobs%2Fjob-1%2Fapply&incomplete=1");
+  expect(screen.getByRole("link", { name: "Continue to your application" }).getAttribute("href"))
+    .toBe("/jobs/job-1/apply");
+
+  fireEvent.change(languages, { target: { value: "Kiswahili (fluent), English" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
   });
 
-  fireEvent.click(
-    nav.getByRole("button", { name: "Academic information & documents" }),
-  );
-  expect(
-    screen.getByRole("heading", { name: "Academic information & documents" }),
-  ).toBeDefined();
-  expect(
-    screen.getByRole("heading", { name: "Supporting documents" }),
-  ).toBeDefined();
-  expect(
-    screen.queryByRole("textbox", { name: "Languages you speak" }),
-  ).toBeNull();
-
-  expect(nav.getByRole<HTMLButtonElement>("button", { name: "Language proficiency" }).disabled).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
-  await screen.findByText("Step 3 of 5");
-  fireEvent.click(await screen.findByRole("button", { name: "Save and continue" }));
-  await screen.findByText("Step 4 of 5");
-  expect(languages.value).toBe("Kiswahili (fluent), English");
-
-  fireEvent.click(await screen.findByRole("button", { name: "Save and continue" }));
-  await screen.findByText("Step 5 of 5");
   const submitted = vi.mocked(saveProfileAction).mock.lastCall?.[1];
   expect(submitted?.get("step")).toBe("languages");
   expect(submitted?.get("languages")).toBe("Kiswahili (fluent), English");
-  expect(submitted?.get("educationLevel")).toBe("BACHELOR");
+  expect(submitted?.has("educationLevel")).toBe(false);
+  expect(push).toHaveBeenCalledWith("/profile/edit/experience?next=%2Fjobs%2Fjob-1%2Fapply&incomplete=1");
 });
 
-it("starts a new profile at step one and only advances after a successful save", async () => {
+it("keeps future sections locked and stays on the current page after a failed save", async () => {
+  push.mockClear();
   vi.mocked(saveProfileAction)
     .mockResolvedValueOnce({ errors: { physicalAddress: ["Enter a valid address."] } })
     .mockResolvedValueOnce({ ok: true, message: "Profile saved." });
-  const props = {
-    initial: null,
-    initialDocuments: [],
-    maxBytes: 1024,
-    redirectToApply: "/jobs/job-1/apply",
-    applicationThreshold: 60,
-  };
-  const { rerender } = render(<ProfileForm {...props} canApply={false} incompleteNotice />);
+  render(<ProfileForm {...props} stepIndex={0} availableStep={0} />);
 
   expect(screen.getByText("Step 1 of 5")).toBeDefined();
-  const education = screen.getByRole<HTMLButtonElement>("button", { name: "Academic information & documents" });
-  expect(education.disabled).toBe(true);
-  fireEvent.click(education);
-  expect(screen.getByText("Step 1 of 5")).toBeDefined();
-  expect(screen.queryByRole("link", { name: "Continue to your application" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Academic information & documents" })).toBeNull();
+  expect(screen.getByText("Academic information & documents").getAttribute("aria-disabled")).toBe("true");
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
   });
-  await screen.findByText("Enter a valid address.");
-  expect(screen.getByText("Step 1 of 5")).toBeDefined();
+  expect(await screen.findByText("Enter a valid address.")).toBeDefined();
+  expect(push).not.toHaveBeenCalled();
 
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
   });
-  await screen.findByText("Step 2 of 5");
-  expect(screen.getByRole<HTMLButtonElement>("button", { name: "Computer literacy" }).disabled).toBe(true);
-  rerender(<ProfileForm {...props} canApply incompleteNotice={false} />);
-  expect(screen.getByRole("link", { name: "Continue to your application" }).getAttribute("href"))
-    .toBe("/jobs/job-1/apply");
-  fireEvent.click(screen.getByRole("button", { name: "Back" }));
-  expect(screen.getByText("Step 1 of 5")).toBeDefined();
+  expect(push).toHaveBeenCalledWith("/profile/edit/education?next=%2Fjobs%2Fjob-1%2Fapply&incomplete=1");
 });

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { useFeedbackAction } from "@/components/action-feedback";
+import { PasswordInput } from "@/components/auth/password-input";
 import { SubmitButton } from "@/components/submit-button";
 import { Field, TextInput } from "@/components/ui";
 import {
@@ -32,6 +33,7 @@ export function AdminSignInForm({ codePending }: { codePending: boolean }) {
       >
         <TextInput
           id="admin-email"
+          placeholder="you@example.com"
           name="email"
           type="email"
           autoComplete="username"
@@ -45,10 +47,10 @@ export function AdminSignInForm({ codePending }: { codePending: boolean }) {
         htmlFor="admin-password"
         error={requestState?.errors?.password}
       >
-        <TextInput
+        <PasswordInput
           id="admin-password"
           name="password"
-          type="password"
+          placeholder="Enter your password"
           autoComplete="current-password"
           required
         />
@@ -79,6 +81,7 @@ function AdminCodeForm({
         >
           <TextInput
             id="admin-code"
+            placeholder="Enter your six-digit code"
             name="code"
             type="text"
             inputMode="numeric"

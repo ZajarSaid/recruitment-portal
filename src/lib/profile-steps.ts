@@ -60,3 +60,15 @@ export function firstIncompleteProfileStep(
   // Experience is optional, so it remains available once the first four steps are complete.
   return index === -1 ? PROFILE_STEPS.length - 1 : index;
 }
+
+export function profileApplicationPath(value: unknown) {
+  return typeof value === "string" && /^\/jobs\/[\w-]+\/apply$/.test(value) ? value : null;
+}
+
+export function profileStepHref(step: ProfileStep["id"], next: string | null, incomplete: boolean) {
+  const query = new URLSearchParams();
+  if (next) query.set("next", next);
+  if (incomplete) query.set("incomplete", "1");
+  const search = query.toString();
+  return `/profile/edit/${step}${search ? `?${search}` : ""}`;
+}

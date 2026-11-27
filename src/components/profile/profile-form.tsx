@@ -1,12 +1,11 @@
 "use client";
 
-import { useFeedbackAction } from "@/components/action-feedback";
+import { notifyAction, useFeedbackAction } from "@/components/action-feedback";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   startTransition,
-  useEffect,
-  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -20,7 +19,7 @@ import {
   type ProfileDocumentInfo,
 } from "@/components/profile/profile-document-field";
 import { saveProfileAction } from "@/lib/actions/profile";
-import { firstIncompleteProfileStep, PROFILE_STEPS as profileSections } from "@/lib/profile-steps";
+import { profileStepHref, PROFILE_STEPS as profileSections } from "@/lib/profile-steps";
 import {
   DOCUMENT_ACCEPT_ATTRIBUTE,
   formatFileSize,
@@ -72,7 +71,8 @@ export function ProfileForm({
   canApply,
   applicationThreshold,
   incompleteNotice,
-  initialSection,
+  stepIndex,
+  availableStep,
 }: {
   initial: ProfileFormValues | null;
   initialDocuments: ProfileDocumentInfo[];
@@ -82,28 +82,22 @@ export function ProfileForm({
   canApply: boolean;
   applicationThreshold: number;
   incompleteNotice: boolean;
-  initialSection?: string;
+  stepIndex: number;
+  availableStep: number;
 }) {
-  const availableStep = firstIncompleteProfileStep(initial, initialDocuments);
-  const requestedStep = profileSections.findIndex(({ id }) => id === initialSection);
-  const [stepIndex, setStepIndex] = useState(
-    requestedStep >= 0 ? Math.min(requestedStep, availableStep) : availableStep,
-  );
+  const router = useRouter();
   const selected = profileSections[stepIndex].id;
   const nextStep = profileSections[stepIndex + 1];
-  const stepIndicator = useRef<HTMLDivElement>(null);
-  const previousPanel = useRef(selected);
-  useEffect(() => {
-    if (previousPanel.current !== selected) stepIndicator.current?.focus();
-    previousPanel.current = selected;
-  }, [selected]);
+  const previousStep = profileSections[stepIndex - 1];
+  const href = (step: typeof selected) => profileStepHref(step, redirectToApply, incompleteNotice);
   const [state, action, saving] = useFeedbackAction(
-    async (
-      previous: Awaited<ReturnType<typeof saveProfileAction>>,
-      data: FormData,
-    ) => {
+    async (previous, data) => {
       const result = await saveProfileAction(previous, data);
-      if (result?.ok && nextStep) setStepIndex(stepIndex + 1);
+      if (result?.ok && nextStep) {
+        notifyAction(result.message ?? "Profile saved.", true);
+        router.push(href(nextStep.id));
+        return undefined;
+      }
       return result;
     },
     undefined,
@@ -113,7 +107,7 @@ export function ProfileForm({
     event.preventDefault();
     if (saving || anyUploading) return;
     const data = new FormData(event.currentTarget);
-    data.set("step", profileSections[stepIndex].id);
+    data.set("step", selected);
     startTransition(() => action(data));
   }
 
@@ -148,59 +142,55 @@ export function ProfileForm({
 
   return (
     <ProfileLayout sections={
-        <ol className="grid gap-1 max-md:grid-cols-2">
-          {profileSections.map(({ id, label }, index) => (
-            <li key={id} className="min-w-0">
-              <button
-                type="button"
-                aria-current={selected === id ? "step" : undefined}
-                aria-controls={`profile-section-${id}`}
-                disabled={saving || index > stepIndex}
-                onClick={() => setStepIndex(index)}
-                className={`${profileSectionClassName} disabled:cursor-not-allowed disabled:opacity-50`}
-              >
+      <ol className="grid gap-1">
+        {profileSections.map(({ id, label }, index) => (
+          <li key={id} className="min-w-0">
+            {index > availableStep || saving || anyUploading ? (
+              <span aria-disabled="true" aria-current={selected === id ? "step" : undefined} className={`${profileSectionClassName} opacity-50`}>
                 {label}
-              </button>
-            </li>
-          ))}
-        </ol>
+              </span>
+            ) : (
+              <Link href={href(id)} aria-current={selected === id ? "step" : undefined} className={profileSectionClassName}>
+                {label}
+              </Link>
+            )}
+          </li>
+        ))}
+      </ol>
     }>
-        {canApply ? (
-          <Alert tone="success">
-            Your profile meets the application requirement.{" "}
-            <Link href={redirectToApply ?? "/jobs"} className="font-semibold underline">
-              {redirectToApply ? "Continue to your application" : "Browse vacancies"}
-            </Link>
-          </Alert>
-        ) : incompleteNotice && (
-          <Alert tone="info">
-            Bring your profile completion above {applicationThreshold}% before applying.
-          </Alert>
-        )}
-        <form
-          onSubmit={handleSubmit}
-          className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
-          noValidate
-        >
-          <div ref={stepIndicator} tabIndex={-1} className="scroll-mt-24 border-b border-zinc-200 bg-zinc-50 px-5 py-4 sm:px-6 dark:border-zinc-800 dark:bg-zinc-900">
-            <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-              Step {stepIndex + 1} of {profileSections.length}
-            </p>
-            {nextStep && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">Complete this step and save to unlock the next one.</p>}
-            <div aria-hidden="true" className="mt-2 flex gap-1">
-              {profileSections.map(({ id }, index) => (
-                <span
-                  key={id}
-                  className={`h-1.5 flex-1 rounded-full ${index <= stepIndex ? "bg-indigo-600 dark:bg-indigo-400" : "bg-indigo-100 dark:bg-zinc-800"}`}
-                />
-              ))}
-            </div>
+      {canApply ? (
+        <Alert tone="success">
+          Your profile meets the application requirement.{" "}
+          <Link href={redirectToApply ?? "/jobs"} className="font-semibold underline">
+            {redirectToApply ? "Continue to your application" : "Browse vacancies"}
+          </Link>
+        </Alert>
+      ) : incompleteNotice && (
+        <Alert tone="info">
+          Bring your profile completion above {applicationThreshold}% before applying.
+        </Alert>
+      )}
+      <form
+        onSubmit={handleSubmit}
+        className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+        noValidate
+      >
+        <div className="scroll-mt-24 border-b border-zinc-200 bg-zinc-50 px-5 py-4 sm:px-6 dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+            Step {stepIndex + 1} of {profileSections.length}
+          </p>
+          {nextStep && stepIndex === availableStep && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">Complete this step and save to unlock the next one.</p>}
+          <div aria-hidden="true" className="mt-2 flex gap-1">
+            {profileSections.map(({ id }, index) => (
+              <span
+                key={id}
+                className={`h-1.5 flex-1 rounded-full ${index <= stepIndex ? "bg-indigo-600 dark:bg-indigo-400" : "bg-indigo-100 dark:bg-zinc-800"}`}
+              />
+            ))}
           </div>
-          <section
-            id="profile-section-personal-details"
-            hidden={selected !== "personal-details"}
-            className={sectionClassName}
-          >
+        </div>
+        {selected === "personal-details" && (
+          <section className={sectionClassName}>
             <h2 className={sectionHeadingClassName}>Personal details</h2>
 
             <ProfilePhotoField
@@ -273,17 +263,14 @@ export function ProfileForm({
                 required
                 rows={2}
                 defaultValue={initial?.physicalAddress ?? ""}
-
                 placeholder="Street, ward, district, region"
               />
             </Field>
           </section>
+        )}
 
-          <section
-            id="profile-section-education"
-            hidden={selected !== "education"}
-            className={sectionClassName}
-          >
+        {selected === "education" && (
+          <section className={sectionClassName}>
             <h2 className={sectionHeadingClassName}>
               Academic information &amp; documents
             </h2>
@@ -384,12 +371,10 @@ export function ProfileForm({
               )}
             </div>
           </section>
+        )}
 
-          <section
-            id="profile-section-experience"
-            hidden={selected !== "experience"}
-            className={sectionClassName}
-          >
+        {selected === "experience" && (
+          <section className={sectionClassName}>
             <h2 className={sectionHeadingClassName}>Experience</h2>
             <Field
               label="Experience summary (optional)"
@@ -403,15 +388,14 @@ export function ProfileForm({
                 defaultValue={initial?.experienceSummary ?? ""}
                 rows={4}
                 maxLength={2000}
+                placeholder="Summarize your relevant work, internships, or projects"
               />
             </Field>
           </section>
+        )}
 
-          <section
-            id="profile-section-computer-literacy"
-            hidden={selected !== "computer-literacy"}
-            className={sectionClassName}
-          >
+        {selected === "computer-literacy" && (
+          <section className={sectionClassName}>
             <h2 className={sectionHeadingClassName}>Computer literacy</h2>
             <Field
               label="Computer literacy"
@@ -433,11 +417,9 @@ export function ProfileForm({
               </Select>
             </Field>
           </section>
-          <section
-            id="profile-section-languages"
-            hidden={selected !== "languages"}
-            className={sectionClassName}
-          >
+        )}
+        {selected === "languages" && (
+          <section className={sectionClassName}>
             <h2 className={sectionHeadingClassName}>Language proficiency</h2>
             <Field
               label="Languages you speak"
@@ -450,28 +432,26 @@ export function ProfileForm({
                 name="languages"
                 required
                 defaultValue={initial?.languages ?? ""}
-
                 placeholder="Kiswahili (fluent), English (intermediate)"
               />
             </Field>
           </section>
+        )}
 
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:px-6 dark:border-zinc-800 dark:bg-zinc-900">
-            {stepIndex > 0 && (
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => setStepIndex(stepIndex - 1)}
-                className="min-h-11 rounded-lg border border-zinc-300 px-4 text-sm font-semibold disabled:opacity-60 dark:border-zinc-700"
-              >
-                Back
-              </button>
-            )}
-            <SubmitButton disabled={saving || anyUploading}>
-              {saving ? "Saving profile…" : nextStep ? "Save and continue" : "Save profile"}
-            </SubmitButton>
-          </div>
-        </form>
+        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:px-6 dark:border-zinc-800 dark:bg-zinc-900">
+          {previousStep && !saving && !anyUploading && (
+            <Link
+              href={href(previousStep.id)}
+              className="inline-flex min-h-11 items-center rounded-lg border border-zinc-300 px-4 text-sm font-semibold dark:border-zinc-700"
+            >
+              Back
+            </Link>
+          )}
+          <SubmitButton disabled={saving || anyUploading}>
+            {saving ? "Saving profile…" : nextStep ? "Save and continue" : "Save profile"}
+          </SubmitButton>
+        </div>
+      </form>
     </ProfileLayout>
   );
 }
