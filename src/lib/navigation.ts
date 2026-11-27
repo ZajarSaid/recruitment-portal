@@ -9,7 +9,7 @@ export function roleHome(role: AppRole): string {
       return "/recruiter";
     case "CANDIDATE":
     default:
-      return "/dashboard";
+      return "/profile";
   }
 }
 

@@ -266,7 +266,7 @@ describe("login", () => {
     expect(getCookie(SESSION_COOKIE_NAME)).toBeUndefined();
   });
 
-  it("only honours same-site relative redirect targets", async () => {
+  it("sends candidates to their profile even when a redirect target is supplied", async () => {
     const email = uniqueEmail("safe-next");
     const { hashPassword } = await import("@/lib/password");
     await prisma.user.create({
@@ -284,8 +284,6 @@ describe("login", () => {
         formData({ email, password: DEFAULT_TEST_PASSWORD, next: "//evil.example" }),
       ),
     );
-    // An unsafe `next` is discarded; a candidate without a complete profile
-    // is then sent to the profile page instead of the dashboard.
     expect(openRedirect).toBe("/profile");
 
     const safeRedirect = await expectRedirect(
@@ -294,7 +292,7 @@ describe("login", () => {
         formData({ email, password: DEFAULT_TEST_PASSWORD, next: "/jobs" }),
       ),
     );
-    expect(safeRedirect).toBe("/jobs");
+    expect(safeRedirect).toBe("/profile");
   });
 
   it("sends a candidate without a complete profile to the profile page", async () => {
@@ -315,7 +313,7 @@ describe("login", () => {
     expect(target).toBe("/profile");
   });
 
-  it("sends a candidate with a complete profile to their dashboard", async () => {
+  it("sends a candidate with a complete profile to their profile page", async () => {
     const email = uniqueEmail("with-profile");
     const { hashPassword } = await import("@/lib/password");
     const user = await prisma.user.create({
@@ -342,7 +340,7 @@ describe("login", () => {
     const target = await expectRedirect(
       loginAction(undefined, formData({ email, password: DEFAULT_TEST_PASSWORD })),
     );
-    expect(target).toBe("/dashboard");
+    expect(target).toBe("/profile");
   });
 });
 

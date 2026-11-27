@@ -195,21 +195,13 @@ async function signIn(formData: FormData): Promise<ActionState | string> {
     return { message: "Your account is already active. Select Sign in to continue." };
   }
 
-  const nextPath = safeNextPath(formValue(formData, "next"));
-  let destination = nextPath ?? roleHome(user.role);
-  if (user.role === "CANDIDATE" && !nextPath) {
-    // Candidates who have not completed their master profile are sent to the
-    // profile page first; applying later only needs an application letter.
-    const profile = await readForSignIn(() => prisma.candidateProfile.findUnique({
-      where: { userId: user.id },
-      select: { id: true },
-    }));
-    if (!profile) destination = "/profile";
-  }
+  const nextPath = user.role === "CANDIDATE"
+    ? null
+    : safeNextPath(formValue(formData, "next"));
 
   await createSession({ userId: user.id, role: user.role });
   await flashFeedback("signed-in");
-  return destination;
+  return nextPath ?? roleHome(user.role);
 }
 
 export async function logoutAction(): Promise<void> {

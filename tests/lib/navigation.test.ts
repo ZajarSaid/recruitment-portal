@@ -7,7 +7,7 @@ describe("roleHome", () => {
   it("routes each role to its landing page", () => {
     expect(roleHome("ADMIN")).toBe("/admin");
     expect(roleHome("RECRUITER")).toBe("/recruiter");
-    expect(roleHome("CANDIDATE")).toBe("/dashboard");
+    expect(roleHome("CANDIDATE")).toBe("/profile");
   });
 });
 
