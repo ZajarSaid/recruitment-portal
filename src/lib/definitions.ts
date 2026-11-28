@@ -220,10 +220,12 @@ export const profileSchema = z.object({
     .optional(),
   birthYear: birthYearSchema("Birth year"),
   birthMonth: birthMonthSchema("Birth month"),
-  nidaNumber: z.string().trim()
-    .regex(/^(?:[0-9]{20}|[0-9]{8}-[0-9]{5}-[0-9]{5}-[0-9]{2})?$/, "Enter a 20-digit NIDA number.")
-    .transform((value) => value.replaceAll("-", "") || null)
-    .optional(),
+  nidaNumber: z.preprocess(
+    (value) => value ?? "",
+    z.string().trim()
+      .regex(/^(?:[0-9]{20}|[0-9]{8}-[0-9]{5}-[0-9]{5}-[0-9]{2})$/, "Enter a 20-digit NIDA number.")
+      .transform((value) => value.replaceAll("-", "")),
+  ),
   physicalAddress: z.preprocess((value) => typeof value === "string" && !value.trim() ? null : value, z
     .string()
     .trim()

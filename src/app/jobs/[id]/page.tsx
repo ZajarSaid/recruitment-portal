@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { formatDate, formatDateTime, SALARY_LABEL } from "@/lib/format";
 import { canManageJob, getJobAvailability, getPublicJob } from "@/lib/jobs";
-import { APPLICATION_PROFILE_THRESHOLD, getProfileReadiness } from "@/lib/profile";
+import { getProfileReadiness } from "@/lib/profile";
 import {
   JOB_CATEGORY_LABELS,
   type JobCategoryValue,
@@ -172,7 +172,7 @@ export default async function JobDetailPage({ params }: JobPageProps) {
           {readiness && !readiness.canApply && (
             <div className="space-y-2">
               <p className="text-sm text-zinc-600 dark:text-zinc-300">
-                Your profile is {readiness.percentage}% complete. Applications require more than {APPLICATION_PROFILE_THRESHOLD}%.
+                {readiness.applicationRequirement}
               </p>
               <Link href={{ pathname: "/profile", query: { next: applyPath, incomplete: "1" } }} className="inline-flex rounded-lg bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
                 Update profile

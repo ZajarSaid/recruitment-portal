@@ -37,7 +37,7 @@ it("saves, preserves, and clears an optional experience summary", async () => {
   }
 });
 
-it("rejects blank and out-of-order steps and persists only the current step", async () => {
+it("requires NIDA, enforces step order, and saves only the current step", async () => {
   resetCookies();
   const user = await createTestUser();
   await createSession({ userId: user.id, role: user.role });
@@ -47,14 +47,14 @@ it("rejects blank and out-of-order steps and persists only the current step", as
     expect(await save({ step: "languages", languages: "English" })).toMatchObject({
       message: "Complete and save the earlier profile steps first.",
     });
-    expect(await save({ step: "personal-details", birthYear: "", birthMonth: "", physicalAddress: "" }))
-      .toMatchObject({ errors: { birthYear: expect.any(Array), physicalAddress: expect.any(Array) } });
+    expect(await save({ step: "personal-details", birthYear: "1995", birthMonth: "6", physicalAddress: "Example address" }))
+      .toMatchObject({ errors: { nidaNumber: expect.any(Array) } });
     expect(await save({
       step: "personal-details", birthYear: "1995", birthMonth: "6",
-      physicalAddress: "Example address", languages: "English",
+      physicalAddress: "Example address", nidaNumber: "00000000-00000-00000-00", languages: "English",
     })).toMatchObject({ ok: true });
     expect(await prisma.candidateProfile.findUniqueOrThrow({ where: { userId: user.id } }))
-      .toMatchObject({ birthYear: 1995, languages: null });
+      .toMatchObject({ birthYear: 1995, nidaNumber: "00000000000000000000", languages: null });
 
     expect(await save({ step: "education", educationLevel: "BACHELOR", category: "MEDICINE" }))
       .toMatchObject({ message: "Upload all required documents for this category before continuing." });

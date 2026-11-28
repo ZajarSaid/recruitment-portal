@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { Alert, Badge } from "@/components/ui";
 import { requireUser } from "@/lib/dal";
-import { APPLICATION_PROFILE_THRESHOLD, getProfileReadiness } from "@/lib/profile";
+import { getProfileReadiness } from "@/lib/profile";
 import { roleHome } from "@/lib/navigation";
 import ApplicationsSection from "@/components/dashboard/applications-section";
 
@@ -25,7 +25,7 @@ export default async function DashboardPage({
   const forbidden = params.error === "forbidden";
   if (!forbidden) redirect("/profile?section=applications");
 
-  const { percentage, canApply } = await getProfileReadiness(user);
+  const { percentage, canApply, applicationRequirement } = await getProfileReadiness(user);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
@@ -46,7 +46,7 @@ export default async function DashboardPage({
       {!canApply && (
         <div className="mt-4">
           <Alert tone="info">
-            Your profile must be above {APPLICATION_PROFILE_THRESHOLD}% to apply.{" "}
+            {applicationRequirement}{" "}
             <Link href="/profile" className="font-medium underline">
               Complete your profile
             </Link>

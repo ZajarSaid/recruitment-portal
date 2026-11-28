@@ -178,7 +178,7 @@ export function ProfileForm({
       )}
       {!canApply && incompleteNotice && (
         <Alert tone="info">
-          Bring your profile completion above {applicationThreshold}% before applying.
+          Add your NIDA number and bring your profile completion above {applicationThreshold}% before applying.
         </Alert>
       )}
       <form
@@ -282,7 +282,7 @@ export function ProfileForm({
               />
             </Field>
             <Field
-              label="NIDA number (optional)"
+              label="NIDA number (required)"
               htmlFor="nidaNumber"
               error={state?.errors?.nidaNumber}
               hint="Enter 20 digits, with or without hyphens."
@@ -290,6 +290,7 @@ export function ProfileForm({
               <TextInput
                 id="nidaNumber"
                 name="nidaNumber"
+                required
                 inputMode="numeric"
                 autoComplete="off"
                 maxLength={23}

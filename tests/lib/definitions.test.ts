@@ -8,12 +8,12 @@ import {
   toFieldErrors,
 } from "@/lib/definitions";
 
-it("normalizes optional NIDA numbers and rejects invalid input", () => {
+it("requires a NIDA number, normalizes it, and rejects invalid input", () => {
   const schema = profileSchema.shape.nidaNumber;
   expect(schema.parse("19900312-78996-66554-80")).toBe("19900312789966655480");
   expect(schema.parse("09900312789966655480")).toBe("09900312789966655480");
-  expect(schema.parse("")).toBeNull();
-  expect(schema.parse(undefined)).toBeUndefined();
+  expect(schema.safeParse("").success).toBe(false);
+  expect(schema.safeParse(undefined).success).toBe(false);
   expect(schema.safeParse("19900312-78996-66554-8").success).toBe(false);
   expect(schema.safeParse("19900312-78996-66554-8A").success).toBe(false);
 });

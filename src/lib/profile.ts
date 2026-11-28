@@ -91,10 +91,17 @@ export async function getProfileReadiness(user: Pick<CurrentUser, "id">) {
   const profile = await getCandidateProfile(user.id);
   const breakdown = profileCompleteness(profile);
   const percentage = breakdown.reduce((total, item) => total + item.points, 0);
+  const missingNidaNumber = !profile?.nidaNumber || !/^[0-9]{20}$/.test(profile.nidaNumber);
+  const applicationRequirement = missingNidaNumber
+    ? "Add your NIDA number in Personal details before applying."
+    : percentage <= APPLICATION_PROFILE_THRESHOLD
+      ? `Your profile is ${percentage}% complete. It must be above ${APPLICATION_PROFILE_THRESHOLD}% to apply.`
+      : null;
   return {
     profile,
     percentage,
     breakdown,
-    canApply: percentage > APPLICATION_PROFILE_THRESHOLD,
+    canApply: applicationRequirement === null,
+    applicationRequirement,
   };
 }

@@ -158,6 +158,7 @@ export async function createTestProfile(
       educationLevel: options.educationLevel ?? "BACHELOR",
       birthYear: options.birthYear ?? 1995,
       birthMonth: options.birthMonth ?? 6,
+      nidaNumber: "00000000000000000000",
       physicalAddress:
         options.physicalAddress ?? "Plot 1, Test Street, Dodoma",
       computerLiteracy: options.computerLiteracy ?? "INTERMEDIATE",

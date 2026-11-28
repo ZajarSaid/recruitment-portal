@@ -5,6 +5,7 @@ export const PROFILE_STEPS = [
     birthYear: "Select your birth year.",
     birthMonth: "Select your birth month.",
     physicalAddress: "Enter your physical address.",
+    nidaNumber: "Enter your NIDA number.",
   } },
   { id: "education", label: "Academic information & documents", required: {
     educationLevel: "Select your highest education level.",
@@ -23,6 +24,7 @@ type RequiredProfileValues = Partial<{
   birthYear: number | null;
   birthMonth: number | null;
   physicalAddress: string | null;
+  nidaNumber: string | null;
   educationLevel: string | null;
   computerLiteracy: string | null;
   languages: string | null;

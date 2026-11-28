@@ -118,7 +118,7 @@ export default async function ProfilePage({ searchParams }: PageProps<"/profile"
   }
 
   const nextPath = profileApplicationPath(params.next);
-  const { profile, percentage, canApply } = await getProfileReadiness(user);
+  const { profile, canApply, applicationRequirement } = await getProfileReadiness(user);
 
   if (params.section === "edit" || nextPath || params.incomplete === "1") {
     const available = firstIncompleteProfileStep(profile, profile?.documents ?? []);
@@ -138,7 +138,7 @@ export default async function ProfilePage({ searchParams }: PageProps<"/profile"
       profile={profile}
       photoSource={photoSource}
       canApply={canApply}
-      eligibilityScore={percentage}
+      applicationRequirement={applicationRequirement}
       maxUploadBytes={env.maxUploadBytes}
     />
   );

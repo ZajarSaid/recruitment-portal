@@ -70,7 +70,7 @@ beforeEach(() => {
 });
 
 describe("submitting an application", () => {
-  it("blocks 60% completion and accepts the application once the score is higher", async () => {
+  it("requires a score above 60% and a saved NIDA number", async () => {
     const recruiter = await createTestUser({ role: "RECRUITER" });
     const candidate = await createTestUser();
     const job = await createTestJob({ createdById: recruiter.id });
@@ -86,7 +86,14 @@ describe("submitting an application", () => {
     });
     await prisma.candidateProfile.update({
       where: { id: profile.id },
-      data: { languages: "Kiswahili" },
+      data: { languages: "Kiswahili", nidaNumber: null },
+    });
+    expect(await applyToJobAction(undefined, applyForm(job.id))).toMatchObject({
+      message: "Add your NIDA number in Personal details before applying.",
+    });
+    await prisma.candidateProfile.update({
+      where: { id: profile.id },
+      data: { nidaNumber: "00000000000000000000" },
     });
     expect(await expectRedirect(applyToJobAction(undefined, applyForm(job.id)))).toBe("/dashboard");
   });

@@ -11,7 +11,7 @@ import {
   applicationLetterRequirement,
   buildRequirementSnapshot,
 } from "@/lib/application-documents";
-import { APPLICATION_PROFILE_THRESHOLD, getProfileReadiness } from "@/lib/profile";
+import { getProfileReadiness } from "@/lib/profile";
 import { flashFeedback } from "@/lib/flash-feedback";
 import { APPLICATION_LETTER_KEY } from "@/lib/profile-documents";
 import { revalidatePath } from "next/cache";
@@ -79,12 +79,9 @@ export async function applyToJobAction(
   }
 
   // Check the same score shown on the candidate's profile before submission.
-  const { canApply, percentage } = await getProfileReadiness(user);
-  if (!canApply) {
-    return {
-      message:
-        `Your profile is ${percentage}% complete. It must be above ${APPLICATION_PROFILE_THRESHOLD}% to apply.`,
-    };
+  const { applicationRequirement } = await getProfileReadiness(user);
+  if (applicationRequirement) {
+    return { message: applicationRequirement };
   }
 
   // Validate that the signed application letter has been staged before

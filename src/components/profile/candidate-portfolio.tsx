@@ -14,7 +14,7 @@ import { DOCUMENT_ACCEPT_ATTRIBUTE, formatFileSize } from "@/lib/document-files"
 import { formatDate } from "@/lib/format";
 import { candidatePortfolioCompletion, summarizeCandidateApplications } from "@/lib/portfolio-summary";
 import { profileStepHref } from "@/lib/profile-steps";
-import { APPLICATION_PROFILE_THRESHOLD, missingRequiredProfileDocuments, type CandidateProfileWithDocuments } from "@/lib/profile";
+import { missingRequiredProfileDocuments, type CandidateProfileWithDocuments } from "@/lib/profile";
 import {
   BIRTH_MONTH_LABELS, COMPUTER_LITERACY_LABELS, EDUCATION_LEVEL_LABELS,
   findProfileDocumentSpec, getCategoryDocumentList, IDENTITY_DOCUMENT, JOB_CATEGORY_LABELS, OPTIONAL_PORTFOLIO_DOCUMENTS,
@@ -110,13 +110,13 @@ function RecordRow({ title, subtitle, dates, actions, children }: {
 }
 
 export async function CandidatePortfolio({
-  user, profile, photoSource, canApply, eligibilityScore, maxUploadBytes,
+  user, profile, photoSource, canApply, applicationRequirement, maxUploadBytes,
 }: {
   user: CurrentUser;
   profile: CandidateProfileWithDocuments;
   photoSource: string | null;
   canApply: boolean;
-  eligibilityScore: number;
+  applicationRequirement: string | null;
   maxUploadBytes: number;
 }) {
   const [records, applicationGroups] = await Promise.all([
@@ -228,7 +228,7 @@ export async function CandidatePortfolio({
             <div className="mt-4 border-t border-indigo-100 pt-3 dark:border-zinc-800">
               <p className="text-sm font-semibold">Application eligibility</p>
               <p className={`mt-1 ${muted}`}>
-                {canApply ? "You meet the profile requirement to apply." : `Your eligibility score is ${eligibilityScore}%. Applications require more than ${APPLICATION_PROFILE_THRESHOLD}%.`}
+                {canApply ? "You meet the profile requirement to apply." : applicationRequirement}
               </p>
               <Link href="/profile?section=edit" className={link}>Review application requirements</Link>
             </div>
