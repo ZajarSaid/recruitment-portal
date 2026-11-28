@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   assignRecruiterAction,
+  createStaffAction,
   setUserActiveAction,
   updateUserRoleAction,
 } from "@/lib/actions/admin";
@@ -13,6 +14,7 @@ import {
   createTestUser,
   formData,
   toCurrentUser,
+  uniqueEmail,
 } from "../harness/fixtures";
 import { resetCookies } from "../harness/cookies";
 
@@ -35,6 +37,23 @@ beforeEach(() => {
   resetCookies();
   resetRateLimits();
   currentUser.mockReset();
+});
+
+it("lets administrators create staff accounts only", async () => {
+  const recruiter = await createTestUser({ role: "RECRUITER" });
+  const admin = await createTestUser({ role: "ADMIN" });
+  const fields = { name: "New Staff", email: uniqueEmail(), password: "StaffPass123", confirmPassword: "StaffPass123" };
+  signIn(recruiter);
+  expect(await createStaffAction(undefined, formData({ ...fields, role: "ADMIN" }))).toMatchObject({ message: "You are not authorized to perform this action." });
+  signIn(admin);
+  expect(await createStaffAction(undefined, formData({ ...fields, role: "CANDIDATE" }))).toMatchObject({ errors: { role: expect.any(Array) } });
+  for (const role of ["RECRUITER", "ADMIN"]) {
+    const email = uniqueEmail();
+    expect(await createStaffAction(undefined, formData({ ...fields, email, role }))).toMatchObject({ ok: true });
+    const created = await prisma.user.findUniqueOrThrow({ where: { email } });
+    expect(created.role).toBe(role);
+    expect(created.passwordHash).not.toBe(fields.password);
+  }
 });
 
 describe("updateUserRoleAction", () => {
@@ -100,7 +119,7 @@ describe("updateUserRoleAction", () => {
 
     const state = await updateUserRoleAction(
       undefined,
-      formData({ userId: admin.id, role: "CANDIDATE" }),
+      formData({ userId: admin.id, role: "RECRUITER" }),
     );
 
     expect(state?.message).toBe("You cannot change your own role.");

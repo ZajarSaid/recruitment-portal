@@ -27,19 +27,20 @@ function SidebarIcon() {
 export function ProfileLayout({
   sections,
   sidebarHeader,
+  navigationLabel = "Profile sections",
   children,
 }: {
   sections: ReactNode;
   sidebarHeader?: ReactNode;
+  navigationLabel?: string;
   children: ReactNode;
 }) {
   const sidebarId = useId();
   const mobileToggle = useRef<HTMLButtonElement>(null);
   const [desktopOpen, setDesktopOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const desktopToggle = desktopOpen
-    ? "Collapse profile navigation"
-    : "Expand profile navigation";
+  const toggleLabel = (open: boolean) =>
+    `${open ? "Collapse" : "Expand"} ${navigationLabel === "Profile sections" ? "profile navigation" : navigationLabel}`;
 
   return (
     <div className="min-w-0 overflow-clip rounded-2xl border border-indigo-100 bg-slate-50/90 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/70">
@@ -53,11 +54,7 @@ export function ProfileLayout({
               type="button"
               aria-controls={sidebarId}
               aria-expanded={mobileOpen}
-              aria-label={
-                mobileOpen
-                  ? "Collapse profile navigation"
-                  : "Expand profile navigation"
-              }
+              aria-label={toggleLabel(mobileOpen)}
               onClick={() => setMobileOpen((open) => !open)}
               className={`flex md:hidden ${toggleClassName}`}
             >
@@ -65,8 +62,8 @@ export function ProfileLayout({
             </button>
             <button
               type="button"
-              aria-label={desktopToggle}
-              title={desktopToggle}
+              aria-label={toggleLabel(desktopOpen)}
+              title={toggleLabel(desktopOpen)}
               aria-controls={sidebarId}
               aria-expanded={desktopOpen}
               onClick={() => setDesktopOpen((open) => !open)}
@@ -80,7 +77,7 @@ export function ProfileLayout({
             >
               {sidebarHeader}
               <nav
-                aria-label="Profile sections"
+                aria-label={navigationLabel}
                 onClick={(event) => {
                   if (
                     mobileOpen &&

@@ -4,13 +4,7 @@ import { notFound } from "next/navigation";
 import { isAdminHost } from "@/lib/admin-access";
 import { getCurrentUser } from "@/lib/dal";
 import { StaffWorkspace } from "@/components/staff-workspace";
-
-const sections = [
-  { href: "/admin", label: "Overview" },
-  { href: "/admin/users", label: "Users and roles" },
-  { href: "/admin/jobs", label: "Jobs oversight" },
-  { href: "/admin/applications", label: "Applications oversight" },
-];
+import { adminSections } from "@/lib/staff-navigation";
 
 export default async function AdminLayout({
   children,
@@ -25,7 +19,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <StaffWorkspace title="Administrator workspace" sections={sections}>
+    <StaffWorkspace title="Administrator workspace" sections={adminSections}>
       {children}
     </StaffWorkspace>
   );

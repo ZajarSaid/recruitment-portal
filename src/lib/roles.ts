@@ -5,6 +5,7 @@
  * `prisma/schema.prisma`.
  */
 export const ROLES = ["CANDIDATE", "RECRUITER", "ADMIN"] as const;
+export const STAFF_ROLES = ["RECRUITER", "ADMIN"] as const;
 
 export type AppRole = (typeof ROLES)[number];
 

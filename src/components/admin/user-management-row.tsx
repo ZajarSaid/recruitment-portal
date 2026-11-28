@@ -5,7 +5,7 @@ import { confirmForm, useFeedbackAction } from "@/components/action-feedback";
 import { SubmitButton } from "@/components/submit-button";
 import { Select } from "@/components/ui";
 import { setUserActiveAction, updateUserRoleAction } from "@/lib/actions/admin";
-import { ROLES, ROLE_LABELS } from "@/lib/roles";
+import { STAFF_ROLES, ROLE_LABELS } from "@/lib/roles";
 
 export function UserManagementRow({
   user,
@@ -81,7 +81,7 @@ export function UserManagementRow({
                   disabled={isSelf}
                   aria-label={`Role for ${user.name}`}
                 >
-                  {ROLES.map((role) => (
+                  {STAFF_ROLES.map((role) => (
                     <option key={role} value={role}>
                       {ROLE_LABELS[role]}
                     </option>

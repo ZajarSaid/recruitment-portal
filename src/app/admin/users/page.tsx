@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 
 import { EmptyState } from "@/components/ui";
+import { CreateStaffForm } from "@/components/admin/create-staff-form";
 import { UserManagementRow } from "@/components/admin/user-management-row";
 import { requireRole } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { formatDate } from "@/lib/format";
+import { STAFF_ROLES } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Users and roles",
@@ -15,6 +17,7 @@ export default async function AdminUsersPage() {
   const current = await requireRole("ADMIN");
 
   const users = await prisma.user.findMany({
+    where: { role: { in: [...STAFF_ROLES] } },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,
@@ -25,8 +28,6 @@ export default async function AdminUsersPage() {
       createdAt: true,
     },
   });
-  const staff = users.filter((user) => user.role !== "CANDIDATE");
-  const candidates = users.filter((user) => user.role === "CANDIDATE");
 
   function renderUser(user: (typeof users)[number]) {
     return (
@@ -47,21 +48,17 @@ export default async function AdminUsersPage() {
         Manage staff roles and account access.
       </p>
 
+      <section className="mt-6 space-y-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+        <h2 className="font-semibold">Add staff account</h2>
+        <CreateStaffForm />
+      </section>
       <div className="mt-6 space-y-3">
-        {staff.length === 0 ? (
+        {users.length === 0 ? (
           <EmptyState title="No staff accounts found" />
         ) : (
-          staff.map(renderUser)
+          users.map(renderUser)
         )}
       </div>
-      {candidates.length > 0 && (
-        <details className="mt-6 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-          <summary className="cursor-pointer text-sm font-semibold">
-            Candidate account access
-          </summary>
-          <div className="mt-3 space-y-3">{candidates.map(renderUser)}</div>
-        </details>
-      )}
     </div>
   );
 }

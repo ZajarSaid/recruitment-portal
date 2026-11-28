@@ -1,17 +1,18 @@
 import { StaffWorkspace } from "@/components/staff-workspace";
+import { getCurrentUser } from "@/lib/dal";
+import { adminSections, vacancySections } from "@/lib/staff-navigation";
 
-const sections = [
-  { href: "/recruiter/jobs", label: "Vacancies" },
-  { href: "/recruiter/jobs/new", label: "Create vacancy" },
-];
-
-export default function RecruiterLayout({
+export default async function RecruiterLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const admin = (await getCurrentUser())?.role === "ADMIN";
   return (
-    <StaffWorkspace title="Recruiter workspace" sections={sections}>
+    <StaffWorkspace
+      title={admin ? "Administrator workspace" : "Recruiter workspace"}
+      sections={admin ? adminSections : vacancySections}
+    >
       {children}
     </StaffWorkspace>
   );

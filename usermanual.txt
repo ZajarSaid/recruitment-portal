@@ -128,7 +128,7 @@ database. Passwords are case-sensitive.
 
   ADMINISTRATOR
     Email:    zacharia1199@outlook.com 
-    Password: Admin@12345
+    Password: Admin@123
     Role:     ADMIN
 
   RECRUITER

@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { ActionState, toFieldErrors } from "@/lib/definitions";
+import { ActionState, registerSchema, toFieldErrors } from "@/lib/definitions";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
-import { ROLES } from "@/lib/roles";
+import { ROLE_LABELS, STAFF_ROLES } from "@/lib/roles";
+import { hashPassword } from "@/lib/password";
 
 function toObject(formData: FormData): Record<string, string> {
   const result: Record<string, string> = {};
@@ -34,8 +35,29 @@ async function requireAdmin(): Promise<
 
 const updateRoleSchema = z.object({
   userId: z.string().min(1, "User is required."),
-  role: z.enum(ROLES),
+  role: z.enum(STAFF_ROLES),
 });
+
+const createStaffSchema = registerSchema.safeExtend({ role: z.enum(STAFF_ROLES) });
+
+export async function createStaffAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.state;
+  const parsed = createStaffSchema.safeParse(toObject(formData));
+  if (!parsed.success) return { errors: toFieldErrors(parsed.error) };
+  const { name, email, password, role } = parsed.data;
+  try {
+    await prisma.user.create({ data: { name, email, passwordHash: await hashPassword(password), role } });
+  } catch (error) {
+    if ((error as { code?: string })?.code === "P2002") {
+      return { errors: { email: ["An account with this email already exists."] } };
+    }
+    return { message: "Could not create the staff account. Please try again." };
+  }
+  revalidatePath("/admin");
+  revalidatePath("/admin/users");
+  return { ok: true, message: `${ROLE_LABELS[role]} account created.` };
+}
 
 export async function updateUserRoleAction(
   _prev: ActionState,
