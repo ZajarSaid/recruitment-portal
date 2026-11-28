@@ -8,6 +8,7 @@ import { ADMIN_CHALLENGE_COOKIE } from "@/lib/admin-challenge";
 import { getCurrentUser } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { readForSignIn } from "@/lib/sign-in-availability";
+import styles from "@/components/admin/dashboard-card.module.css";
 
 export const metadata: Metadata = {
   title: "Admin dashboard",
@@ -17,11 +18,15 @@ export const metadata: Metadata = {
 export default async function AdminPage() {
   const user = await getCurrentUser();
   if (user?.role !== "ADMIN") {
-    const codePending = Boolean((await cookies()).get(ADMIN_CHALLENGE_COOKIE)?.value);
+    const codePending = Boolean(
+      (await cookies()).get(ADMIN_CHALLENGE_COOKIE)?.value,
+    );
     return (
       <main className="mx-auto max-w-md py-8">
         <Card>
-          <h1 className="mb-5 text-2xl font-semibold tracking-tight">Administrator sign-in</h1>
+          <h1 className="mb-5 text-2xl font-semibold tracking-tight">
+            Administrator sign-in
+          </h1>
           <AdminSignInForm codePending={codePending} />
         </Card>
       </main>
@@ -29,9 +34,15 @@ export default async function AdminPage() {
   }
 
   const [usersByRole, jobsByStatus, applicationsByStatus] = await Promise.all([
-    readForSignIn(() => prisma.user.groupBy({ by: ["role"], _count: { _all: true } })),
-    readForSignIn(() => prisma.job.groupBy({ by: ["status"], _count: { _all: true } })),
-    readForSignIn(() => prisma.application.groupBy({ by: ["status"], _count: { _all: true } })),
+    readForSignIn(() =>
+      prisma.user.groupBy({ by: ["role"], _count: { _all: true } }),
+    ),
+    readForSignIn(() =>
+      prisma.job.groupBy({ by: ["status"], _count: { _all: true } }),
+    ),
+    readForSignIn(() =>
+      prisma.application.groupBy({ by: ["status"], _count: { _all: true } }),
+    ),
   ]);
 
   const roleCount = Object.fromEntries(
@@ -61,27 +72,49 @@ export default async function AdminPage() {
       </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Users" value={totalUsers} />
-        <StatCard label="Published vacancies" value={jobCount.PUBLISHED ?? 0} />
+        <StatCard label="Users" value={totalUsers} className={styles.card} />
+        <StatCard
+          label="Published vacancies"
+          value={jobCount.PUBLISHED ?? 0}
+          className={`${styles.card} ${styles.published}`}
+        />
         <StatCard
           label="Submitted applications"
           value={appCount.SUBMITTED ?? 0}
+          className={styles.card}
         />
         <StatCard
           label="Shortlisted candidates"
           value={appCount.SHORTLISTED ?? 0}
+          className={`${styles.card} ${styles.published}`}
         />
       </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total vacancies" value={totalJobs} />
-        <StatCard label="Draft vacancies" value={jobCount.DRAFT ?? 0} />
-        <StatCard label="Closed vacancies" value={jobCount.CLOSED ?? 0} />
-        <StatCard label="Rejected applications" value={appCount.REJECTED ?? 0} />
+        <StatCard
+          label="Total vacancies"
+          value={totalJobs}
+          className={styles.card}
+        />
+        <StatCard
+          label="Draft vacancies"
+          value={jobCount.DRAFT ?? 0}
+          className={`${styles.card} ${styles.attention}`}
+        />
+        <StatCard
+          label="Closed vacancies"
+          value={jobCount.CLOSED ?? 0}
+          className={`${styles.card} ${styles.closed}`}
+        />
+        <StatCard
+          label="Rejected applications"
+          value={appCount.REJECTED ?? 0}
+          className={`${styles.card} ${styles.closed}`}
+        />
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-3">
-        <Card>
+        <Card className={styles.card}>
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             Users by role
           </h2>
@@ -101,7 +134,7 @@ export default async function AdminPage() {
           </ul>
         </Card>
 
-        <Card>
+        <Card className={styles.card}>
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             Applications by status
           </h2>
@@ -130,7 +163,7 @@ export default async function AdminPage() {
           )}
         </Card>
 
-        <Card>
+        <Card className={styles.card}>
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             Quick actions
           </h2>

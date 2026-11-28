@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { AssignRecruiterForm } from "@/components/admin/assign-recruiter-form";
+import styles from "@/components/admin/dashboard-card.module.css";
 import { requireRole } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { formatDate, humanizeStatus } from "@/lib/format";
@@ -50,7 +51,10 @@ export default async function AdminJobsPage() {
           <EmptyState title="No vacancies found" />
         ) : (
           jobs.map((job) => (
-            <Card key={job.id}>
+            <Card
+              key={job.id}
+              className={`${styles.card} ${job.status === "PUBLISHED" ? styles.published : job.status === "DRAFT" ? styles.attention : styles.closed}`}
+            >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <Link

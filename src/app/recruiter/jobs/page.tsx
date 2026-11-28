@@ -9,6 +9,7 @@ import {
   type JobCategoryValue,
 } from "@/lib/profile-documents";
 import { listManagedJobs } from "@/lib/jobs";
+import styles from "@/components/admin/dashboard-card.module.css";
 
 export const metadata: Metadata = {
   title: "Manage vacancies",
@@ -40,7 +41,7 @@ export default async function ManageJobsPage() {
         </div>
         <Link
           href="/recruiter/jobs/new"
-          className="inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="inline-flex min-h-11 items-center rounded-lg bg-indigo-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-400 dark:text-indigo-950 dark:hover:bg-indigo-300"
         >
           New vacancy
         </Link>
@@ -54,7 +55,10 @@ export default async function ManageJobsPage() {
           />
         ) : (
           jobs.map((job) => (
-            <Card key={job.id} className="p-4">
+            <Card
+              key={job.id}
+              className={`p-4 ${user.role === "ADMIN" ? `${styles.card} ${job.status === "PUBLISHED" ? styles.published : job.status === "DRAFT" ? styles.attention : styles.closed}` : ""}`}
+            >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <Link
@@ -72,9 +76,7 @@ export default async function ManageJobsPage() {
                     {job._count.applications === 1
                       ? "application"
                       : "applications"}
-                    {job.recruiter
-                      ? ` · Recruiter: ${job.recruiter.name}`
-                      : ""}
+                    {job.recruiter ? ` · Recruiter: ${job.recruiter.name}` : ""}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-2">

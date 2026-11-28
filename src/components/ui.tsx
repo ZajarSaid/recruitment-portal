@@ -143,15 +143,17 @@ export function StatCard({
   label,
   value,
   hint,
+  className = "",
 }: {
   label: string;
   value: ReactNode;
   hint?: string;
+  className?: string;
 }) {
   return (
-    <Card className="p-4">
+    <Card className={`p-4 ${className}`}>
       <p className="text-sm text-zinc-500 dark:text-zinc-400">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+      <p className="mt-1 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-50">
         {value}
       </p>
       {hint && (

@@ -1,0 +1,48 @@
+.card {
+  --card-accent: #818cf8;
+  border-inline-start: 3px solid var(--card-accent);
+}
+
+.published {
+  --card-accent: light-dark(#34a98a, #50bb9d);
+}
+
+.attention {
+  --card-accent: light-dark(#c98939, #dca555);
+}
+
+.closed {
+  --card-accent: light-dark(#a1a1aa, #71717a);
+}
+
+.card:focus-within {
+  box-shadow: 0 0 0 1px var(--card-accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card {
+    animation: appear 220ms ease-out both;
+    transition:
+      box-shadow 180ms ease,
+      translate 180ms ease;
+  }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .card:hover {
+    translate: 0 -2px;
+    box-shadow: 0 7px 20px
+      color-mix(in srgb, var(--card-accent) 16%, transparent);
+  }
+}
+
+@keyframes appear {
+  from {
+    opacity: 0.75;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
